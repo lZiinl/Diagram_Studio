@@ -153,52 +153,65 @@
   // Appl_WakeUpSleep(현재 글꼴 약 117px)에 좌우 여백을 포함한 공통 폭입니다.
   const UNIT_WIDTH = 160;
 
-  function wrapLabel(label, availableWidth) {
-    return label
-      .split('\n')
-      .flatMap((line) => {
-        const lines = [];
-        let current = '';
-        for (const character of line) {
-          if (current && measureText(current + character) > availableWidth) {
-            lines.push(current);
-            current = '';
-          }
-          current += character;
-        }
-        lines.push(current);
-        return lines;
-      })
-      .join('\n');
+  function labelWidth(label) {
+    return Math.max(...label.split('\n').map(measureText));
   }
 
-  function layoutHeaders(components, columnGap) {
+  function fitComponent(component) {
+    const first = component.units[0];
+    const last = component.units.at(-1);
+    const left = first.x - first.w / 2;
+    const right = last.x + last.w / 2;
+    component.w = Math.max(right - left + COMPONENT_PADDING * 2, labelWidth(component.name) + 24);
+    component.x = (left + right - component.w) / 2;
+  }
+
+  function layoutHeaders(components) {
     let nextComponentX = 24;
     for (const component of components) {
-      component.x = nextComponentX;
-      component.w =
-        COMPONENT_PADDING * 2 +
-        component.units.length * UNIT_WIDTH +
-        (component.units.length - 1) * columnGap;
-      component.displayName = wrapLabel(component.name, component.w - 24);
-      component.units.forEach((unit, index) => {
-        unit.w = UNIT_WIDTH;
-        unit.x =
-          component.x + COMPONENT_PADDING + UNIT_WIDTH / 2 + index * (UNIT_WIDTH + columnGap);
-        unit.displayLabel = wrapLabel(unit.label, UNIT_WIDTH - 26);
-      });
-      // 기본값에서 내부 간격 42px, 컴포넌트 외부 간격 50px을 유지합니다.
-      nextComponentX += component.w + columnGap + 8;
+      component.displayName = component.name;
+      let cursor = nextComponentX + COMPONENT_PADDING;
+      for (const unit of component.units) {
+        unit.w = Math.max(UNIT_WIDTH, labelWidth(unit.label) + 26);
+        unit.displayLabel = unit.label;
+        unit.x = cursor + unit.w / 2;
+        cursor += unit.w + 24;
+      }
+      fitComponent(component);
+      const offset = nextComponentX - component.x;
+      for (const unit of component.units) {
+        unit.x += offset;
+      }
+      fitComponent(component);
+      nextComponentX = component.x + component.w + 32;
     }
   }
 
-  function wrapMessages(events, unitsById) {
+  function fitMessages(components, units, events, unitsById, columnGap) {
+    // 명시한 줄바꿈만 유지하고 긴 신호명은 가로 공간을 늘려 온전히 표시합니다.
     for (const event of events) {
       if (!event.from) {
         continue;
       }
-      const distance = Math.abs(unitsById[event.from].x - unitsById[event.to].x);
-      event.displayLabel = wrapLabel(event.label, distance ? distance - 36 : UNIT_WIDTH - 26);
+      event.displayLabel = event.label;
+      if (event.from === event.to) {
+        continue;
+      }
+      const sourceIndex = units.indexOf(unitsById[event.from]);
+      const targetIndex = units.indexOf(unitsById[event.to]);
+      const left = Math.min(sourceIndex, targetIndex);
+      const right = Math.max(sourceIndex, targetIndex);
+      const extra = Math.max(0, labelWidth(event.label) + 36 - (units[right].x - units[left].x));
+      for (let index = right; index < units.length; index++) {
+        units[index].x += extra;
+      }
+    }
+    // 사용자 간격은 최소 배치가 정해진 후 모든 열에 동일하게 더합니다.
+    units.forEach((unit, index) => {
+      unit.x += index * (columnGap - 24);
+    });
+    for (const component of components) {
+      fitComponent(component);
     }
   }
 
@@ -332,8 +345,8 @@
     const { units, events } = model;
     const components = model.groups || model.components;
     const unitsById = Object.fromEntries(units.map((unit) => [unit.id, unit]));
-    layoutHeaders(components, columnGap);
-    wrapMessages(events, unitsById);
+    layoutHeaders(components);
+    fitMessages(components, units, events, unitsById, columnGap);
     const titleLines = Math.max(
       1,
       ...components.map((component) => component.displayName.split('\n').length),

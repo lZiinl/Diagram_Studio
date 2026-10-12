@@ -10,7 +10,7 @@ assert.equal(exampleModel.events.filter((e) => e.from).length, 9);
 assert.match(exampleSvg, /<svg/);
 assert.doesNotMatch(exampleSvg, /NaN|undefined/);
 
-// 가장 긴 실제 유닛명은 한 줄로 유지하고, 메시지 길이는 가로 배치를 바꾸지 않습니다.
+// 이름과 메시지는 강제로 자르지 않고 필요한 가로 공간을 확보합니다.
 const fixedSource =
   'component "Long Component Title That Must Wrap" {\nunit a "Appl_WakeUpSleep"\nunit b "B"\nunit c "C"\n}\ncomponent "Next" {\nunit d "D"\n}\na -> b : ';
 const shortLayout = parse(fixedSource + 'short');
@@ -19,12 +19,10 @@ render(shortLayout);
 render(longLayout);
 assert.equal(longLayout.units[0].displayLabel, 'Appl_WakeUpSleep');
 assert.ok(longLayout.units.every((unit) => unit.w === 160));
-assert.deepEqual(
-  longLayout.units.map((unit) => unit.x),
-  shortLayout.units.map((unit) => unit.x),
-);
-assert.ok(longLayout.events[0].displayLabel.includes('\n'));
-assert.equal(longLayout.units[1].x - longLayout.units[0].x - 160, 42);
+assert.ok(longLayout.units[1].x > shortLayout.units[1].x);
+assert.equal(longLayout.events[0].displayLabel, longLayout.events[0].label);
+assert.equal(exampleModel.components[0].displayName, 'SWC100 : ADC Conversion');
+assert.ok(exampleSvg.includes('>SWC100 : ADC Conversion</text>'));
 assert.equal(longLayout.units[2].x - longLayout.units[1].x - 160, 42);
 assert.equal(
   longLayout.components[1].x - longLayout.components[0].x - longLayout.components[0].w,
