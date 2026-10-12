@@ -23,7 +23,7 @@
   const HEADER_TOP = 16;
   const UNIT_TOP = 49;
   const TEXT_LINE_HEIGHT = 20;
-  // SVGの既定単位はpx。1pt = 96/72px を既存フォントサイズに加算します。
+  // SVG 기본 단위는 px이며 기존 글꼴에 1pt(96/72px)를 더합니다.
   const FONT_INCREMENT = 4 / 3;
   const COMPONENT_PADDING = 20;
 
@@ -150,73 +150,55 @@
     );
   }
 
+  // Appl_WakeUpSleep(현재 글꼴 약 117px)에 좌우 여백을 포함한 공통 폭입니다.
+  const UNIT_WIDTH = 160;
+
+  function wrapLabel(label, availableWidth) {
+    return label
+      .split('\n')
+      .flatMap((line) => {
+        const lines = [];
+        let current = '';
+        for (const character of line) {
+          if (current && measureText(current + character) > availableWidth) {
+            lines.push(current);
+            current = '';
+          }
+          current += character;
+        }
+        lines.push(current);
+        return lines;
+      })
+      .join('\n');
+  }
+
   function layoutHeaders(components, columnGap) {
     let nextComponentX = 24;
-
     for (const component of components) {
       component.x = nextComponentX;
-      let nextUnitX = nextComponentX + COMPONENT_PADDING;
-
-      for (const unit of component.units) {
-        unit.w = Math.max(126, ...unit.label.split('\n').map((line) => measureText(line) + 26));
-        // 유닛의 x는 중심, 컴포넌트의 x는 왼쪽 경계입니다.
-        unit.x = nextUnitX + unit.w / 2;
-        nextUnitX += unit.w + columnGap;
-      }
-
-      const contentWidth = nextUnitX - columnGap + COMPONENT_PADDING - nextComponentX;
-      component.w = Math.max(contentWidth, measureText(component.name) + 24);
-      // 제목 때문에 늘어난 폭을 양쪽에 나누어 유닛 묶음과 제목 중심을 맞춥니다.
-      const titlePadding = (component.w - contentWidth) / 2;
-      for (const unit of component.units) {
-        unit.x += titlePadding;
-      }
-      nextComponentX += component.w + 30;
+      component.w =
+        COMPONENT_PADDING * 2 +
+        component.units.length * UNIT_WIDTH +
+        (component.units.length - 1) * columnGap;
+      component.displayName = wrapLabel(component.name, component.w - 24);
+      component.units.forEach((unit, index) => {
+        unit.w = UNIT_WIDTH;
+        unit.x =
+          component.x + COMPONENT_PADDING + UNIT_WIDTH / 2 + index * (UNIT_WIDTH + columnGap);
+        unit.displayLabel = wrapLabel(unit.label, UNIT_WIDTH - 26);
+      });
+      // 기본값에서 내부 간격 42px, 컴포넌트 외부 간격 50px을 유지합니다.
+      nextComponentX += component.w + columnGap + 8;
     }
   }
 
-  function expandMessageColumns(model, unitsById, columnGap) {
-    const { units, events } = model;
-    const components = model.groups || model.components;
-
+  function wrapMessages(events, unitsById) {
     for (const event of events) {
-      if (!event.from || event.from === event.to) {
+      if (!event.from) {
         continue;
       }
-
-      const sourceIndex = units.indexOf(unitsById[event.from]);
-      const targetIndex = units.indexOf(unitsById[event.to]);
-      const leftIndex = Math.min(sourceIndex, targetIndex);
-      const rightIndex = Math.max(sourceIndex, targetIndex);
-      const requiredWidth = Math.max(...event.label.split('\n').map(measureText)) + 36;
-      const extraWidth = requiredWidth - (units[rightIndex].x - units[leftIndex].x);
-
-      // 긴 메시지가 들어갈 공간이 부족하면 오른쪽 이후의 열을 함께 이동합니다.
-      if (extraWidth > 0) {
-        for (let index = rightIndex; index < units.length; index++) {
-          units[index].x += extraWidth;
-        }
-      }
-    }
-
-    // 글자와 박스에 필요한 최소 배치를 먼저 확정한 뒤 모든 인접 열에
-    // 동일한 추가 여백을 적용합니다. 메시지 폭 보정이 사용자 간격을 상쇄하지 않습니다.
-    const extraColumnGap = columnGap - 24;
-    units.forEach((unit, index) => {
-      unit.x += index * extraColumnGap;
-    });
-
-    // 열 이동 후 컴포넌트 테두리도 하위 유닛의 새 좌표에 맞춥니다.
-    for (const component of components) {
-      const firstUnit = component.units[0];
-      const lastUnit = component.units.at(-1);
-      const left = firstUnit.x - firstUnit.w / 2;
-      const right = lastUnit.x + lastUnit.w / 2;
-      component.w = Math.max(
-        right - left + COMPONENT_PADDING * 2,
-        measureText(component.name) + 24,
-      );
-      component.x = (left + right - component.w) / 2;
+      const distance = Math.abs(unitsById[event.from].x - unitsById[event.to].x);
+      event.displayLabel = wrapLabel(event.label, distance ? distance - 36 : UNIT_WIDTH - 26);
     }
   }
 
@@ -230,7 +212,7 @@
         continue;
       }
 
-      nextMessageY += Math.max(0, (event.label.split('\n').length - 1) * TEXT_LINE_HEIGHT);
+      nextMessageY += Math.max(0, (event.displayLabel.split('\n').length - 1) * TEXT_LINE_HEIGHT);
       event.y = nextMessageY;
       nextMessageY += Math.max(rowGap, event.from === event.to ? 62 : 30);
     }
@@ -246,7 +228,7 @@
       .map(
         (event) =>
           unitsById[event.from].x +
-          Math.max(65, measureText(event.label) + 30) +
+          Math.max(65, Math.max(...event.displayLabel.split('\n').map(measureText)) + 30) +
           30 -
           componentRight,
       );
@@ -266,7 +248,7 @@
       .join('');
   }
 
-  function renderHeaders(components, unitHeight, headerBottom) {
+  function renderHeaders(components, unitHeight, headerBottom, unitTop) {
     let svg = '';
 
     for (const component of components) {
@@ -274,14 +256,14 @@
         svg +=
           `<rect x="${component.x}" y="${HEADER_TOP}" width="${component.w}" ` +
           `height="${headerBottom - HEADER_TOP}" fill="${component.color}"/>`;
-        svg += renderText(component.name, component.x + component.w / 2, 34);
+        svg += renderText(component.displayName, component.x + component.w / 2, 34);
       }
 
       for (const unit of component.units) {
         svg +=
-          `<rect x="${unit.x - unit.w / 2}" y="${UNIT_TOP}" width="${unit.w}" ` +
+          `<rect x="${unit.x - unit.w / 2}" y="${unitTop}" width="${unit.w}" ` +
           `height="${unitHeight}" fill="${unit.color}"/>`;
-        svg += renderText(unit.label, unit.x, UNIT_TOP + 22);
+        svg += renderText(unit.displayLabel, unit.x, unitTop + 22);
       }
     }
 
@@ -311,7 +293,8 @@
     if (sourceX === targetX) {
       // 자기 호출은 오른쪽으로 돌아오는 경로이며 수신 박스가 아래쪽에 놓입니다.
       endY = messageY + 25;
-      const turnX = sourceX + Math.max(65, measureText(event.label) + 30);
+      const turnX =
+        sourceX + Math.max(65, Math.max(...event.displayLabel.split('\n').map(measureText)) + 30);
       svg +=
         `<path d="M${sourceX + 14} ${messageY} H${turnX} V${endY} H${sourceX + 24}" ` +
         `fill="none" stroke="${event.color}" stroke-width="2" ${dashStyle}/>`;
@@ -328,9 +311,9 @@
     }
 
     svg += renderText(
-      event.label,
+      event.displayLabel,
       Math.min(sourceX, targetX) + 15,
-      messageY - 8 - (event.label.split('\n').length - 1) * TEXT_LINE_HEIGHT,
+      messageY - 8 - (event.displayLabel.split('\n').length - 1) * TEXT_LINE_HEIGHT,
       'start',
       '#111827',
       11,
@@ -349,15 +332,19 @@
     const { units, events } = model;
     const components = model.groups || model.components;
     const unitsById = Object.fromEntries(units.map((unit) => [unit.id, unit]));
+    layoutHeaders(components, columnGap);
+    wrapMessages(events, unitsById);
+    const titleLines = Math.max(
+      1,
+      ...components.map((component) => component.displayName.split('\n').length),
+    );
+    const unitTop = UNIT_TOP + (titleLines - 1) * TEXT_LINE_HEIGHT;
     const unitHeight = Math.max(
       70,
-      ...units.map((unit) => unit.label.split('\n').length * TEXT_LINE_HEIGHT + 22),
+      ...units.map((unit) => unit.displayLabel.split('\n').length * TEXT_LINE_HEIGHT + 22),
     );
-    const headerBottom = UNIT_TOP + unitHeight + 12;
+    const headerBottom = unitTop + unitHeight + 12;
 
-    // 최소 간격을 기준으로 자동 배치한 다음 사용자 여백을 별도로 적용합니다.
-    layoutHeaders(components, 24);
-    expandMessageColumns(model, unitsById, columnGap);
     const height = layoutEvents(events, headerBottom, rowGap);
     const width = calculateCanvasWidth(components, events, unitsById);
 
@@ -365,7 +352,7 @@
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" ` +
       `viewBox="0 0 ${width} ${height}" role="img" aria-label="소프트웨어 컴포넌트 시퀀스 다이어그램">` +
       '<rect width="100%" height="100%" fill="white"/>';
-    svg += renderHeaders(components, unitHeight, headerBottom);
+    svg += renderHeaders(components, unitHeight, headerBottom, unitTop);
 
     // 생명선을 먼저 그려 메시지와 입출력 박스가 그 위에 표시되게 합니다.
     for (const unit of units) {

@@ -9,6 +9,27 @@ assert.equal(exampleModel.units.length, 6);
 assert.equal(exampleModel.events.filter((e) => e.from).length, 9);
 assert.match(exampleSvg, /<svg/);
 assert.doesNotMatch(exampleSvg, /NaN|undefined/);
+
+// 가장 긴 실제 유닛명은 한 줄로 유지하고, 메시지 길이는 가로 배치를 바꾸지 않습니다.
+const fixedSource =
+  'component "Long Component Title That Must Wrap" {\nunit a "Appl_WakeUpSleep"\nunit b "B"\nunit c "C"\n}\ncomponent "Next" {\nunit d "D"\n}\na -> b : ';
+const shortLayout = parse(fixedSource + 'short');
+const longLayout = parse(fixedSource + 'very long signal name '.repeat(15));
+render(shortLayout);
+render(longLayout);
+assert.equal(longLayout.units[0].displayLabel, 'Appl_WakeUpSleep');
+assert.ok(longLayout.units.every((unit) => unit.w === 160));
+assert.deepEqual(
+  longLayout.units.map((unit) => unit.x),
+  shortLayout.units.map((unit) => unit.x),
+);
+assert.ok(longLayout.events[0].displayLabel.includes('\n'));
+assert.equal(longLayout.units[1].x - longLayout.units[0].x - 160, 42);
+assert.equal(longLayout.units[2].x - longLayout.units[1].x - 160, 42);
+assert.equal(
+  longLayout.components[1].x - longLayout.components[0].x - longLayout.components[0].w,
+  50,
+);
 assert.equal(exampleModel.units.find((unit) => unit.id === 'func').color, '#CC99FF');
 assert.equal(exampleModel.units.find((unit) => unit.id === 'func').ioColor, '#CC99FF');
 
