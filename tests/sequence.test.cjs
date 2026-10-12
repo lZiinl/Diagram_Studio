@@ -9,6 +9,22 @@ assert.equal(exampleModel.units.length, 6);
 assert.equal(exampleModel.events.filter((e) => e.from).length, 9);
 assert.match(exampleSvg, /<svg/);
 assert.doesNotMatch(exampleSvg, /NaN|undefined/);
+assert.equal(exampleModel.units.find((unit) => unit.id === 'func').color, '#CC99FF');
+assert.equal(exampleModel.units.find((unit) => unit.id === 'func').ioColor, '#CC99FF');
+
+// 상세설계용 독립 유닛과 컴포넌트 내부 유닛을 함께 사용할 수 있습니다.
+const standalone = parse(
+  'unit a "Input" #abc io #def\nunit b "Output"\na -> b : signal\na <-- b : return',
+);
+const standaloneSvg = render(standalone);
+assert.equal(standalone.components.length, 0);
+assert.equal(standalone.units.length, 2);
+assert.doesNotMatch(standaloneSvg, /undefined|NaN/);
+assert.equal((standaloneSvg.match(/<rect/g) || []).length, 7); // 배경 + 유닛 2 + 송수신 4
+const mixed = parse('unit a "A"\ncomponent "Group" {\nunit b "B"\n}\nunit c "C"\na -> c : signal');
+render(mixed);
+assert.equal(mixed.components.length, 1);
+assert.ok(mixed.units[0].x < mixed.units[1].x && mixed.units[1].x < mixed.units[2].x);
 
 // 제목이 유닛보다 길거나 메시지 때문에 열이 넓어져도 좌우 안쪽 여백은 대칭입니다.
 for (const component of exampleModel.components) {

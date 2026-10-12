@@ -44,6 +44,8 @@
    */
   function parse(source) {
     const components = [];
+    // 독립 유닛도 선언 순서대로 배치하되 실제 컴포넌트로 집계하거나 그리지 않습니다.
+    const groups = [];
     const units = [];
     const events = [];
     let currentComponent = null;
@@ -70,15 +72,13 @@
           units: [],
         };
         components.push(currentComponent);
+        groups.push(currentComponent);
       } else if (line === '}') {
         if (!currentComponent) {
           fail('닫을 컴포넌트가 없습니다.');
         }
         currentComponent = null;
       } else if ((match = line.match(UNIT_PATTERN))) {
-        if (!currentComponent) {
-          fail('unit은 component 안에 선언하세요.');
-        }
         if (units.some((unit) => unit.id === match[1])) {
           fail('중복된 유닛 ID: ' + match[1]);
         }
@@ -90,7 +90,11 @@
           ioColor: match[4] || '#ffebcc',
         };
         units.push(unit);
-        currentComponent.units.push(unit);
+        if (currentComponent) {
+          currentComponent.units.push(unit);
+        } else {
+          groups.push({ name: '', standalone: true, units: [unit] });
+        }
       } else if ((match = line.match(MESSAGE_PATTERN))) {
         // 왼쪽 화살표도 실제 송신자와 수신자로 정규화해 동일한 렌더러를 사용합니다.
         const pointsLeft = match[2].startsWith('<');
@@ -116,7 +120,7 @@
       throw Error('컴포넌트의 닫는 중괄호(})가 필요합니다.');
     }
     if (!units.length) {
-      throw Error('컴포넌트 안에 unit을 하나 이상 선언하세요.');
+      throw Error('unit을 하나 이상 선언하세요.');
     }
     if (components.some((component) => !component.units.length)) {
       throw Error('빈 컴포넌트에 unit을 추가하세요.');
@@ -133,7 +137,7 @@
       }
     }
 
-    return { components, units, events };
+    return { components, groups, units, events };
   }
 
   // 브라우저 폰트 측정 없이 동일한 배치를 얻기 위한 폭 근사치입니다.
@@ -172,7 +176,8 @@
   }
 
   function expandMessageColumns(model, unitsById, columnGap) {
-    const { components, units, events } = model;
+    const { units, events } = model;
+    const components = model.groups || model.components;
 
     for (const event of events) {
       if (!event.from || event.from === event.to) {
@@ -265,10 +270,12 @@
     let svg = '';
 
     for (const component of components) {
-      svg +=
-        `<rect x="${component.x}" y="${HEADER_TOP}" width="${component.w}" ` +
-        `height="${headerBottom - HEADER_TOP}" fill="${component.color}"/>`;
-      svg += renderText(component.name, component.x + component.w / 2, 34);
+      if (!component.standalone) {
+        svg +=
+          `<rect x="${component.x}" y="${HEADER_TOP}" width="${component.w}" ` +
+          `height="${headerBottom - HEADER_TOP}" fill="${component.color}"/>`;
+        svg += renderText(component.name, component.x + component.w / 2, 34);
+      }
 
       for (const unit of component.units) {
         svg +=
@@ -339,7 +346,8 @@
   function render(model, options = {}) {
     const columnGap = Math.max(24, Math.min(240, Number(options.gap) || 42));
     const rowGap = Math.max(30, Math.min(160, Number(options.row) || 48));
-    const { components, units, events } = model;
+    const { units, events } = model;
+    const components = model.groups || model.components;
     const unitsById = Object.fromEntries(units.map((unit) => [unit.id, unit]));
     const unitHeight = Math.max(
       70,

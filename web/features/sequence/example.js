@@ -6,7 +6,7 @@ component "SWC100 : ADC Conversion" #d9e8fb {
 
 
 component "SWC200 : Input Main Monitoring" #f7ceca {
-  unit func "Appl_Function\n(SWU201.1)\nASIL A" #ffebcc
+  unit func "Appl_Function\n(SWU201.1)\nASIL A" #CC99FF io #CC99FF
   unit check "Appl_InvolCheck\n(SWU201.2)\nASIL A" #ffebcc
 }
 
