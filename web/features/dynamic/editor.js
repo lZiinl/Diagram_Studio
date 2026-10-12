@@ -318,6 +318,34 @@ function normalizeZoomInput() {
   getElement('zoom').value = String(zoomPercent);
 }
 
+/** 미리보기의 가용 크기로 배율을 계산하고 현재 탭에 저장합니다. 원본 SVG는 유지합니다. */
+function fitPreviewToScreen() {
+  const svg = getElement('diagram').firstElementChild;
+  if (!svg) {
+    return;
+  }
+  const canvas = getElement('canvas');
+  const style = getComputedStyle(canvas);
+  // 스크롤바와 안쪽 여백을 제외하고 가로·세로 중 더 작은 배율을 사용합니다.
+  const width = canvas.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  const height =
+    canvas.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+  if (width <= 0 || height <= 0) {
+    return;
+  }
+  const percent = Math.floor(
+    Math.min(
+      width / Number(svg.getAttribute('width')),
+      height / Number(svg.getAttribute('height')),
+    ) * 100,
+  );
+  getElement('zoom').value = String(Math.max(50, Math.min(200, percent)));
+  normalizeZoomInput();
+  canvas.scrollLeft = 0;
+  canvas.scrollTop = 0;
+  persistProject();
+}
+
 /** 소스를 검증하고 미리보기를 갱신합니다. 오류 시 마지막 정상 그림을 유지합니다. */
 function refresh() {
   EditorLayout.updateLineNumbers();
@@ -350,6 +378,7 @@ function refresh() {
   // 잘못된 소스와 이전 그림이 혼동되지 않도록 오류 중에는 이미지 저장을 막습니다.
   getElement('svg').disabled = !isValid;
   getElement('png').disabled = !isValid;
+  getElement('fit-view').disabled = !svgText;
   if (project) {
     persistProject();
   }
@@ -510,6 +539,7 @@ function bindEvents() {
     persistProject();
   });
   getElement('zoom').addEventListener('change', normalizeZoomInput);
+  getElement('fit-view').onclick = fitPreviewToScreen;
 
   getElement('save').onclick = saveSource;
   getElement('svg').onclick = exportSvg;

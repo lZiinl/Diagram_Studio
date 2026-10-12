@@ -101,6 +101,29 @@ async function run() {
   assert.equal(vm.runInContext('project.tabs[0].id', restoredOrder.context), lastId);
 
   const requests = [];
+  // 영역의 여백과 세로 제한을 반영하고 기존 배율 범위를 유지합니다.
+  toolsEditor.context.getComputedStyle = () => ({
+    paddingLeft: '30px',
+    paddingRight: '30px',
+    paddingTop: '30px',
+    paddingBottom: '30px',
+  });
+  const canvas = toolsEditor.context.document.getElementById('canvas');
+  const preview = toolsEditor.elements.get('diagram').firstElementChild;
+  preview.getAttribute = (name) => (name === 'width' ? '1000' : '500');
+  canvas.clientWidth = 1060;
+  canvas.clientHeight = 460;
+  vm.runInContext('fitPreviewToScreen()', toolsEditor.context);
+  assert.equal(toolsEditor.elements.get('zoom').value, '80');
+  assert.equal(JSON.parse(toolsEditor.storage.get('dynamic-project-v1')).tabs[0].zoom, 80);
+  assert.equal(canvas.scrollTop, 0);
+  canvas.clientWidth = 260;
+  vm.runInContext('fitPreviewToScreen()', toolsEditor.context);
+  assert.equal(toolsEditor.elements.get('zoom').value, '50');
+  canvas.clientWidth = 4060;
+  canvas.clientHeight = 2060;
+  vm.runInContext('fitPreviewToScreen()', toolsEditor.context);
+  assert.equal(toolsEditor.elements.get('zoom').value, '200');
   const savedBlobs = [];
   const editor = createEditor(async (options) => {
     requests.push(options);
