@@ -10,6 +10,7 @@ const getElement = (id) => document.getElementById(id);
 let svgText = '';
 let isValid = false;
 let zoomPercent = 100;
+let currentDiagramName = DEFAULT_NAME;
 const PROJECT_STORAGE_KEY = 'dynamic-project-v1';
 // 이전 사이트의 자동 저장은 읽기만 하며 새 키가 있으면 새 데이터를 우선합니다.
 function readSavedValue(key) {
@@ -82,7 +83,7 @@ function renderTabs() {
 function showActiveTab() {
   const tab = activeTab();
   getElement('source').value = tab.source;
-  getElement('diagram-name').value = tab.name;
+  currentDiagramName = tab.name;
   getElement('project-name').value = project.name;
   getElement('gap').value = String(tab.gap);
   getElement('row').value = String(tab.row);
@@ -110,12 +111,33 @@ function addTab() {
   showActiveTab();
 }
 
+function duplicateTab() {
+  // 파싱 오류가 있는 작성 중 소스도 현재 화면 설정과 함께 복제합니다.
+  captureActiveTab();
+  const original = activeTab();
+  let suffix = ' (복사본)';
+  let name = original.name.slice(0, 120 - suffix.length) + suffix;
+  let number = 2;
+  while (project.tabs.some((tab) => tab.name === name)) {
+    suffix = ` (복사본 ${number++})`;
+    name = original.name.slice(0, 120 - suffix.length) + suffix;
+  }
+  const copy = DiagramProject.createTab(name, original.source);
+  copy.gap = original.gap;
+  copy.row = original.row;
+  copy.zoom = original.zoom;
+  const index = project.tabs.indexOf(original);
+  project.tabs.splice(index + 1, 0, copy);
+  project.activeTabId = copy.id;
+  showActiveTab();
+}
+
 function renameTab() {
   const name = prompt('다이어그램 탭 이름을 입력하세요.', getDiagramName());
   if (name === null || !name.trim()) {
     return;
   }
-  getElement('diagram-name').value = name.trim().slice(0, 120);
+  currentDiagramName = name.trim().slice(0, 120);
   updateDiagramName();
 }
 
@@ -188,7 +210,7 @@ async function importProject() {
 }
 
 function restoreSource() {
-  getElement('diagram-name').value = DEFAULT_NAME;
+  currentDiagramName = DEFAULT_NAME;
   try {
     const savedSource = readSavedValue(STORAGE_KEY);
     // 과거 기본 예제만 공백을 정리합니다. 사용자가 수정한 작업은 유지합니다.
@@ -200,7 +222,7 @@ function restoreSource() {
     const isOldExample =
       savedSource && withoutBlankLines(savedSource) === withoutBlankLines(example);
     getElement('source').value = !savedSource || isOldExample ? example : savedSource;
-    getElement('diagram-name').value = readSavedValue(NAME_STORAGE_KEY) || DEFAULT_NAME;
+    currentDiagramName = readSavedValue(NAME_STORAGE_KEY) || DEFAULT_NAME;
   } catch {
     // 저장소 접근이 제한된 브라우저에서도 편집기는 사용할 수 있어야 합니다.
     getElement('source').value = example;
@@ -217,7 +239,7 @@ function saveDraft() {
 }
 
 function getDiagramName() {
-  return getElement('diagram-name').value.trim() || DEFAULT_NAME;
+  return currentDiagramName.trim() || DEFAULT_NAME;
 }
 
 function updateDiagramName() {
@@ -415,7 +437,7 @@ async function importSource() {
       }
     }
     getElement('source').value = contents;
-    getElement('diagram-name').value = name.slice(0, 120);
+    currentDiagramName = name.slice(0, 120);
     updateDiagramName();
     refresh();
   } catch (error) {
@@ -456,9 +478,9 @@ function bindEvents() {
   getElement('load').onclick = () => getElement('file').click();
   getElement('file').onchange = importSource;
   getElement('source').addEventListener('keydown', insertIndent);
-  getElement('diagram-name').addEventListener('input', updateDiagramName);
   getElement('project-name').addEventListener('input', persistProject);
   getElement('add-tab').onclick = addTab;
+  getElement('duplicate-tab').onclick = duplicateTab;
   getElement('rename-tab').onclick = renameTab;
   getElement('delete-tab').onclick = deleteTab;
   getElement('save-project').onclick = saveProject;

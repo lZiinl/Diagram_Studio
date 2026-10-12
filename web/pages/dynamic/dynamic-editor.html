@@ -19,7 +19,11 @@
           / 다이나믹 다이어그램 편집기
         </span>
       </div>
-      <div>
+      <label class="project-name-field" for="project-name">
+        프로젝트 이름
+        <input id="project-name" type="text" maxlength="120" placeholder="새 프로젝트" />
+      </label>
+      <div class="header-actions">
         <button id="load-project">프로젝트 열기</button>
         <button id="save-project">프로젝트 저장</button>
         <button id="load">소스 불러오기</button>
@@ -31,10 +35,6 @@
     <!-- 소스 입력과 미리보기는 별도 영역으로 유지합니다. -->
     <main id="editor-main">
       <aside>
-        <label class="diagram-name-label" for="project-name">프로젝트 이름</label>
-        <input id="project-name" type="text" maxlength="120" placeholder="새 프로젝트" />
-        <label class="diagram-name-label" for="diagram-name">다이어그램 이름</label>
-        <input id="diagram-name" type="text" maxlength="120" placeholder="예: 입력 신호 처리" />
         <div class="panel-title">
           <b>다이어그램 소스</b>
           <button id="example">예제 복원</button>
@@ -101,6 +101,7 @@ space 30
         <nav class="tab-bar" aria-label="프로젝트 다이어그램">
           <div id="diagram-tabs" role="tablist" aria-label="다이어그램 탭"></div>
           <button id="add-tab">+ 탭 추가</button>
+          <button id="duplicate-tab">탭 복제</button>
           <button id="rename-tab">이름 변경</button>
           <button id="delete-tab">탭 삭제</button>
         </nav>

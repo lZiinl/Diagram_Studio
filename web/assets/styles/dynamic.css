@@ -1,14 +1,25 @@
 /* 편집기는 좌측 소스와 우측 미리보기로 나누며 각 영역이 독립적으로 스크롤됩니다. */
-.diagram-name-label {
-  margin: 0 0 6px;
-  font-weight: 600;
+.header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
 }
 
-#diagram-name,
+.project-name-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
 #project-name {
-  width: 100%;
-  padding: 10px 12px;
-  margin-bottom: 20px;
+  width: clamp(150px, 15vw, 260px);
+  padding: 8px 12px;
+  font-size: 14px;
 }
 
 * {
@@ -35,8 +46,8 @@ header {
   border-bottom: 1px solid #dde3ec;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 28px;
+  justify-content: flex-start;
+  padding: 12px 28px;
   gap: 20px;
 }
 .brand {

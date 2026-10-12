@@ -117,8 +117,8 @@ async function run() {
     assert.equal(editor.elements.get('zoom').value, String(expected));
     assert.equal(editor.elements.get('diagram').firstElementChild.style.width, `${expected}px`);
   }
-  editor.elements.get('diagram-name').value = '입력 처리';
-  vm.runInContext('updateDiagramName()', editor.context);
+  editor.context.prompt = () => '입력 처리';
+  vm.runInContext('renameTab()', editor.context);
   assert.equal(editor.storage.get('dynamic-name'), '입력 처리');
   await vm.runInContext('saveSource()', editor.context);
   assert.equal(requests[0].suggestedName, '입력 처리.uml');
@@ -126,7 +126,7 @@ async function run() {
 
   editor.elements.get('file').files = [{ name: 'renamed.uml', text: () => savedBlobs[0].text() }];
   await vm.runInContext('importSource()', editor.context);
-  assert.equal(editor.elements.get('diagram-name').value, '입력 처리');
+  assert.equal(vm.runInContext('getDiagramName()', editor.context), '입력 처리');
   await vm.runInContext('exportSvg()', editor.context);
   assert.equal(requests[1].suggestedName, '입력 처리.svg');
   assert.match(await savedBlobs[1].text(), /<svg/);
@@ -196,7 +196,21 @@ async function run() {
     ['sequence-name', '이전 이름'],
   ]);
   assert.equal(migrated.elements.get('source').value, '기존 작업');
-  assert.equal(migrated.elements.get('diagram-name').value, '이전 이름');
+  assert.equal(vm.runInContext('getDiagramName()', migrated.context), '이전 이름');
+  // 복제는 독립 ID와 고유 이름을 부여하고 원본의 작성 중 소스·설정을 유지합니다.
+  vm.runInContext('duplicateTab()', migrated.context);
+  let tabs = JSON.parse(migrated.storage.get('dynamic-project-v1')).tabs;
+  assert.equal(tabs.length, 2);
+  assert.notEqual(tabs[0].id, tabs[1].id);
+  assert.equal(tabs[1].name, '이전 이름 (복사본)');
+  assert.equal(tabs[1].source, tabs[0].source);
+  assert.equal(tabs[1].zoom, tabs[0].zoom);
+  migrated.elements.get('source').value = '복사본에서 수정';
+  vm.runInContext('refresh(); switchTab(project.tabs[0].id); duplicateTab()', migrated.context);
+  tabs = JSON.parse(migrated.storage.get('dynamic-project-v1')).tabs;
+  assert.equal(tabs[0].source, '기존 작업');
+  assert.equal(tabs[1].name, '이전 이름 (복사본 2)');
+  assert.equal(tabs[2].source, '복사본에서 수정');
   assert.ok(migrated.storage.has('dynamic-project-v1'));
   const legacyProject = createEditor(undefined, [
     ['sequence-project-v1', JSON.stringify(savedProject)],
