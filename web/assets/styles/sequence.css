@@ -77,9 +77,10 @@ main {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 390px 1fr;
+  grid-template-columns: var(--sidebar-width, 312px) 8px minmax(0, 1fr);
 }
 aside {
+  min-width: 0;
   background: #fff;
   border-right: 1px solid #dde3ec;
   padding: 20px;
@@ -103,15 +104,20 @@ aside {
 }
 /* 소스 입력창: 코드 줄바꿈과 들여쓰기가 잘 보이도록 고정폭 글꼴을 사용합니다. */
 textarea {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  width: 0;
   flex: 1;
   min-height: 180px;
   resize: none;
-  border: 1px solid #28364a;
-  border-radius: 9px;
+  border: 0;
+  border-radius: 0;
   background: #152034;
   color: #dce9ff;
   padding: 18px 14px;
-  line-height: 1.8;
+  line-height: 22px;
   font-family: Consolas, monospace;
   font-size: 12px;
   tab-size: 2;
@@ -207,7 +213,7 @@ footer span {
 }
 @media (max-width: 900px) {
   main {
-    grid-template-columns: 310px 1fr;
+    min-width: 500px;
   }
   header {
     padding: 12px;
@@ -217,6 +223,62 @@ footer span {
   .toolbar {
     flex-wrap: wrap;
   }
+}
+
+.source-editor {
+  display: flex;
+  flex: 1;
+  min-height: 180px;
+  overflow: hidden;
+  border: 1px solid #28364a;
+  border-radius: 9px;
+  background: #152034;
+}
+
+#line-numbers {
+  width: 46px;
+  padding: 18px 8px 18px 12px;
+  overflow: hidden;
+  text-align: right;
+  color: #8498b4;
+  background: #101a2b;
+  font:
+    12px/22px Consolas,
+    monospace;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* 입력창의 한 소스 행이 실제로 차지하는 높이를 동일한 글꼴과 줄바꿈으로 측정합니다. */
+.source-line-measure {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  visibility: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font:
+    12px/22px Consolas,
+    monospace;
+  tab-size: 2;
+  padding: 0;
+  border: 0;
+}
+
+#line-numbers .error-line {
+  background: #9f2237;
+  color: #fff;
+}
+
+#panel-splitter {
+  cursor: col-resize;
+  background: #e1e7ef;
+  touch-action: none;
+}
+
+#panel-splitter:hover,
+#panel-splitter:focus-visible {
+  background: #7194ef;
 }
 
 /* 탭 수가 늘면 탭 목록만 가로로 스크롤하고 작업 버튼은 유지합니다. */

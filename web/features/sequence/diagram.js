@@ -7,7 +7,11 @@
     '^component\\s+"((?:\\\\.|[^"\\\\])*)"(?:\\s+(' + COLOR_PATTERN + '))?\\s*\\{$',
   );
   const UNIT_PATTERN = new RegExp(
-    '^unit\\s+([A-Za-z_][\\w]*)\\s+"((?:\\\\.|[^"\\\\])*)"(?:\\s+(' + COLOR_PATTERN + '))?$',
+    '^unit\\s+([A-Za-z_][\\w]*)\\s+"((?:\\\\.|[^"\\\\])*)"(?:\\s+(' +
+      COLOR_PATTERN +
+      '))?(?:\\s+io\\s+(' +
+      COLOR_PATTERN +
+      '))?$',
   );
   const MESSAGE_PATTERN = new RegExp(
     '^([A-Za-z_][\\w]*)\\s*(-->|<--|->|<-)\\s*([A-Za-z_][\\w]*)(?:\\s+(' +
@@ -18,7 +22,9 @@
   // 좌표와 여백의 단위는 SVG의 px입니다. 상단 박스와 메시지 영역을 분리합니다.
   const HEADER_TOP = 16;
   const UNIT_TOP = 49;
-  const TEXT_LINE_HEIGHT = 18;
+  const TEXT_LINE_HEIGHT = 20;
+  // SVGの既定単位はpx。1pt = 96/72px を既存フォントサイズに加算します。
+  const FONT_INCREMENT = 4 / 3;
   const COMPONENT_PADDING = 20;
 
   function escapeXml(value) {
@@ -81,6 +87,7 @@
           id: match[1],
           label: decodeLabel(match[2]),
           color: match[3] || '#ffebcc',
+          ioColor: match[4] || '#ffebcc',
         };
         units.push(unit);
         currentComponent.units.push(unit);
@@ -133,7 +140,8 @@
   // 한글 등 비라틴 문자는 12px, 나머지는 7px로 계산합니다.
   function measureText(value) {
     return Array.from(value).reduce(
-      (width, character) => width + (/[^\x00-\xff]/.test(character) ? 12 : 7),
+      (width, character) =>
+        width + (/[^\x00-\xff]/.test(character) ? 12 : 7) * ((12 + FONT_INCREMENT) / 12),
       0,
     );
   }
@@ -152,10 +160,13 @@
         nextUnitX += unit.w + columnGap;
       }
 
-      component.w = Math.max(
-        nextUnitX - columnGap + COMPONENT_PADDING - nextComponentX,
-        measureText(component.name) + 24,
-      );
+      const contentWidth = nextUnitX - columnGap + COMPONENT_PADDING - nextComponentX;
+      component.w = Math.max(contentWidth, measureText(component.name) + 24);
+      // 제목 때문에 늘어난 폭을 양쪽에 나누어 유닛 묶음과 제목 중심을 맞춥니다.
+      const titlePadding = (component.w - contentWidth) / 2;
+      for (const unit of component.units) {
+        unit.x += titlePadding;
+      }
       nextComponentX += component.w + 30;
     }
   }
@@ -194,11 +205,13 @@
     for (const component of components) {
       const firstUnit = component.units[0];
       const lastUnit = component.units.at(-1);
-      component.x = firstUnit.x - firstUnit.w / 2 - COMPONENT_PADDING;
+      const left = firstUnit.x - firstUnit.w / 2;
+      const right = lastUnit.x + lastUnit.w / 2;
       component.w = Math.max(
-        lastUnit.x + lastUnit.w / 2 + COMPONENT_PADDING - component.x,
+        right - left + COMPONENT_PADDING * 2,
         measureText(component.name) + 24,
       );
+      component.x = (left + right - component.w) / 2;
     }
   }
 
@@ -212,7 +225,7 @@
         continue;
       }
 
-      nextMessageY += Math.max(0, (event.label.split('\n').length - 1) * 17);
+      nextMessageY += Math.max(0, (event.label.split('\n').length - 1) * TEXT_LINE_HEIGHT);
       event.y = nextMessageY;
       nextMessageY += Math.max(rowGap, event.from === event.to ? 62 : 30);
     }
@@ -243,7 +256,7 @@
         (line, lineIndex) =>
           `<text x="${x}" y="${y + lineIndex * TEXT_LINE_HEIGHT}" ` +
           `text-anchor="${anchor}" fill="${fill}" font-family="Arial, sans-serif" ` +
-          `font-size="${size}">${escapeXml(line)}</text>`,
+          `font-size="${size + FONT_INCREMENT}">${escapeXml(line)}</text>`,
       )
       .join('');
   }
@@ -254,13 +267,13 @@
     for (const component of components) {
       svg +=
         `<rect x="${component.x}" y="${HEADER_TOP}" width="${component.w}" ` +
-        `height="${headerBottom - HEADER_TOP}" fill="${component.color}" stroke="#b88787"/>`;
+        `height="${headerBottom - HEADER_TOP}" fill="${component.color}"/>`;
       svg += renderText(component.name, component.x + component.w / 2, 34);
 
       for (const unit of component.units) {
         svg +=
           `<rect x="${unit.x - unit.w / 2}" y="${UNIT_TOP}" width="${unit.w}" ` +
-          `height="${unitHeight}" fill="${unit.color}" stroke="#ceab66"/>`;
+          `height="${unitHeight}" fill="${unit.color}"/>`;
         svg += renderText(unit.label, unit.x, UNIT_TOP + 22);
       }
     }
@@ -277,23 +290,34 @@
     let endY = messageY;
     let svg = '';
 
+    // 입출력 박스를 먼저 그리고 화살표 끝을 수신 박스의 바깥 경계에 연결합니다.
+    endY = sourceX === targetX ? messageY + 25 : messageY;
+    for (const [unit, boxY] of [
+      [unitsById[event.from], messageY],
+      [unitsById[event.to], endY],
+    ]) {
+      svg += `<rect data-role="io-box" x="${unit.x}" y="${boxY - 7.5}" width="14" height="15" fill="${unit.ioColor}"/>`;
+    }
+    const arrowStart = direction > 0 ? sourceX + 14 : sourceX;
+    const arrowEnd = direction > 0 ? targetX : targetX + 14;
+
     if (sourceX === targetX) {
       // 자기 호출은 오른쪽으로 돌아오는 경로이며 수신 박스가 아래쪽에 놓입니다.
       endY = messageY + 25;
       const turnX = sourceX + Math.max(65, measureText(event.label) + 30);
       svg +=
-        `<path d="M${sourceX} ${messageY} H${turnX} V${endY} H${sourceX + 10}" ` +
+        `<path d="M${sourceX + 14} ${messageY} H${turnX} V${endY} H${sourceX + 24}" ` +
         `fill="none" stroke="${event.color}" stroke-width="2" ${dashStyle}/>`;
       svg +=
-        `<polygon points="${sourceX},${endY} ${sourceX + 11},${endY - 5} ` +
-        `${sourceX + 11},${endY + 5}" fill="${event.color}"/>`;
+        `<polygon points="${sourceX + 14},${endY} ${sourceX + 25},${endY - 5} ` +
+        `${sourceX + 25},${endY + 5}" fill="${event.color}"/>`;
     } else {
       svg +=
-        `<path d="M${sourceX} ${messageY} H${targetX - direction * 10}" ` +
+        `<path d="M${arrowStart} ${messageY} H${arrowEnd - direction * 10}" ` +
         `stroke="${event.color}" stroke-width="2" ${dashStyle}/>`;
       svg +=
-        `<polygon points="${targetX},${messageY} ${targetX - direction * 11},${messageY - 5} ` +
-        `${targetX - direction * 11},${messageY + 5}" fill="${event.color}"/>`;
+        `<polygon points="${arrowEnd},${messageY} ${arrowEnd - direction * 11},${messageY - 5} ` +
+        `${arrowEnd - direction * 11},${messageY + 5}" fill="${event.color}"/>`;
     }
 
     svg += renderText(
@@ -304,17 +328,6 @@
       '#111827',
       11,
     );
-
-    // 작은 박스는 실행 시간 구간이 아니라 각 메시지의 송수신 위치 표시입니다.
-    for (const [boxX, boxY] of [
-      [sourceX, messageY],
-      [targetX, endY],
-    ]) {
-      const fill = boxX === sourceX ? unitsById[event.from].color : unitsById[event.to].color;
-      svg +=
-        `<rect x="${boxX}" y="${boxY + 1}" width="14" height="15" ` +
-        `fill="${fill}" stroke="#ecad3d" stroke-width="1"/>`;
-    }
 
     return svg;
   }

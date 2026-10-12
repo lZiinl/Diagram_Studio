@@ -8,8 +8,14 @@ function createEditor(picker, initialStorage = []) {
   const storage = new Map(initialStorage);
   const alerts = [];
   const document = {
+    body: { appendChild() {} },
     createElement() {
-      return { setAttribute() {}, focus() {} };
+      return {
+        style: {},
+        getBoundingClientRect: () => ({ height: 22 }),
+        setAttribute() {},
+        focus() {},
+      };
     },
     getElementById(id) {
       if (!elements.has(id)) {
@@ -17,7 +23,23 @@ function createEditor(picker, initialStorage = []) {
           value: '',
           files: [],
           textContent: '',
-          addEventListener() {},
+          listeners: {},
+          addEventListener(name, listener) {
+            this.listeners[name] = listener;
+          },
+          clientWidth: 1200,
+          style: {
+            setProperty(name, value) {
+              this[name] = value;
+            },
+          },
+          setAttribute(name, value) {
+            this[name] = value;
+          },
+          setPointerCapture() {},
+          getBoundingClientRect() {
+            return { left: 0 };
+          },
           children: [],
           replaceChildren() {
             this.children = [];
@@ -34,6 +56,7 @@ function createEditor(picker, initialStorage = []) {
   const context = vm.createContext({
     document,
     Blob,
+    addEventListener() {},
     confirm: () => true,
     showSaveFilePicker: picker,
     localStorage: {
@@ -42,7 +65,14 @@ function createEditor(picker, initialStorage = []) {
     },
     alert: (message) => alerts.push(message),
   });
-  for (const filename of ['diagram', 'example', 'file-save', 'project', 'editor']) {
+  for (const filename of [
+    'diagram',
+    'example',
+    'file-save',
+    'project',
+    'editor-layout',
+    'editor',
+  ]) {
     vm.runInContext(fs.readFileSync(`web/features/sequence/${filename}.js`, 'utf8'), context);
   }
   return { context, elements, storage, alerts };
@@ -62,6 +92,17 @@ async function run() {
   });
 
   assert.match(editor.elements.get('source').value, /}\n\n\ncomponent/);
+  assert.equal(editor.elements.get('editor-main').style['--sidebar-width'], '312px');
+  assert.equal(
+    editor.elements.get('line-numbers').children.length,
+    editor.elements.get('source').value.split('\n').length,
+  );
+  const splitter = editor.elements.get('panel-splitter');
+  splitter.listeners.pointerdown({ button: 0, pointerId: 1, preventDefault() {} });
+  splitter.listeners.pointermove({ clientX: 460 });
+  splitter.listeners.pointerup();
+  assert.equal(editor.elements.get('editor-main').style['--sidebar-width'], '460px');
+  assert.equal(editor.storage.get('sequence-sidebar-width'), '460');
   // 임의 배율, 양 끝 범위, 범위 밖 입력과 입력 중 빈 값을 검사합니다.
   for (const [requested, expected] of [
     ['50', 50],
@@ -111,6 +152,8 @@ async function run() {
 
   // 오류가 있는 작성 중 소스와 화면 설정도 탭 전환 후 유지되어야 합니다.
   editor.elements.get('source').value = '아직 작성 중';
+  vm.runInContext('refresh()', editor.context);
+  assert.equal(editor.elements.get('line-numbers').children[0].className, 'error-line');
   editor.elements.get('gap').value = '87';
   vm.runInContext('refresh(); addTab()', editor.context);
   assert.equal(editor.elements.get('source').value, '');

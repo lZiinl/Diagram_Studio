@@ -254,6 +254,7 @@ function normalizeZoomInput() {
 
 /** 소스를 검증하고 미리보기를 갱신합니다. 오류 시 마지막 정상 그림을 유지합니다. */
 function refresh() {
+  EditorLayout.updateLineNumbers();
   try {
     const model = Diagram.parse(getElement('source').value);
     svgText = Diagram.render(model, {
@@ -271,6 +272,8 @@ function refresh() {
     isValid = true;
     saveDraft();
   } catch (error) {
+    const line = error.message.match(/^(\d+)행:/);
+    EditorLayout.updateLineNumbers(line ? Number(line[1]) : 0);
     isValid = false;
     getElement('status').className = 'error';
     getElement('status').textContent = getElement('source').value.trim()
@@ -460,5 +463,6 @@ function bindEvents() {
 }
 
 restoreSource();
+EditorLayout.initialize();
 bindEvents();
 restoreProject();

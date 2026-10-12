@@ -23,14 +23,11 @@ component "SWC230 : Led DTC" #f7ceca {
 
 
 adc -> func #009900 : VINVOL_TAIL\nVINVOL_STOP
-space 12
 func -> check : G_bFuncMode( func_ch )
 func -> led : G_bFuncMode( func_ch )
 func -> tell : G_bFuncMode( func_ch )
 func -> dtc : G_bFuncMode( func_ch )
-space 20
 func -> check : G_wInvolAdc( func_ch )
-space 18
 check -> led : Get_byInvolMode( func_ch )
 check -> tell : Get_byInvolMode( func_ch )
 check -> dtc : Get_byInvolMode( func_ch )`;

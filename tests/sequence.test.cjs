@@ -10,6 +10,15 @@ assert.equal(exampleModel.events.filter((e) => e.from).length, 9);
 assert.match(exampleSvg, /<svg/);
 assert.doesNotMatch(exampleSvg, /NaN|undefined/);
 
+// 제목이 유닛보다 길거나 메시지 때문에 열이 넓어져도 좌우 안쪽 여백은 대칭입니다.
+for (const component of exampleModel.components) {
+  const first = component.units[0];
+  const last = component.units.at(-1);
+  const leftPadding = first.x - first.w / 2 - component.x;
+  const rightPadding = component.x + component.w - last.x - last.w / 2;
+  assert.ok(Math.abs(leftPadding - rightPadding) < 0.000001);
+}
+
 // 같은 전송을 왼쪽/오른쪽 문법으로 썼을 때 화살표와 송수신 색상이 같아야 합니다.
 const declarations = 'component "C" {\nunit a "A" #aabbcc\nunit b "B" #ddeeff\n}\n';
 for (const [left, right] of [
@@ -36,7 +45,7 @@ for (const [smallGap, largeGap] of [
   for (let index = 1; index < compact.units.length; index++) {
     const compactDistance = compact.units[index].x - compact.units[index - 1].x;
     const spaciousDistance = spacious.units[index].x - spacious.units[index - 1].x;
-    assert.equal(spaciousDistance - compactDistance, largeGap - smallGap);
+    assert.ok(Math.abs(spaciousDistance - compactDistance - (largeGap - smallGap)) < 0.000001);
   }
   for (let index = 1; index < spacious.components.length; index++) {
     const previous = spacious.components[index - 1];
@@ -60,7 +69,21 @@ const svg = render(model);
 assert.equal(model.events.length, 3);
 assert.match(svg, /stroke-dasharray="6 4"/);
 assert.match(svg, /#123456/);
-assert.equal((svg.match(/stroke="#ecad3d"/g) || []).length, 6);
+assert.equal((svg.match(/data-role="io-box"/g) || []).length, 6);
+assert.ok(!/<rect[^>]*stroke=/.test(svg));
+assert.match(svg, /font-size="13\.333333333333334"/);
+assert.match(svg, /font-size="12\.333333333333334"/);
+assert.ok(!/^space /m.test(example));
+
+// 작은 박스 색상은 유닛 색상에 종속되지 않고, 왼쪽 화살촉은 박스 오른쪽에 닿습니다.
+const colored = parse(
+  'component "C" {\nunit a "A" #abcdef io #123456\nunit b "B" #fedcba io #654321\n}\na <- b : left',
+);
+const coloredSvg = render(colored);
+assert.equal(colored.units[0].ioColor, '#123456');
+assert.match(coloredSvg, /data-role="io-box"[^>]*fill="#123456"/);
+assert.ok(coloredSvg.includes(`points="${colored.units[0].x + 14},${colored.events[0].y} `));
+assert.ok(coloredSvg.indexOf('data-role="io-box"') < coloredSvg.indexOf('<polygon'));
 const originalSvg = render(parse(source));
 const extendedSvg = render(parse(source + '\na -> b : extra'));
 assert.ok(+extendedSvg.match(/height="(\d+)"/)[1] > +originalSvg.match(/height="(\d+)"/)[1]);

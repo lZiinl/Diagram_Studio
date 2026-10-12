@@ -29,7 +29,7 @@
       </div>
     </header>
     <!-- 소스 입력과 미리보기는 별도 영역으로 유지합니다. -->
-    <main>
+    <main id="editor-main">
       <aside>
         <label class="diagram-name-label" for="project-name">프로젝트 이름</label>
         <input id="project-name" type="text" maxlength="120" placeholder="새 프로젝트" />
@@ -40,13 +40,16 @@
           <button id="example">예제 복원</button>
         </div>
         <p class="hint">텍스트를 수정하면 다이어그램이 자동으로 정렬됩니다.</p>
-        <textarea id="source" spellcheck="false" aria-label="UML 소스"></textarea>
+        <div class="source-editor">
+          <div id="line-numbers" aria-hidden="true"></div>
+          <textarea id="source" wrap="soft" spellcheck="false" aria-label="UML 소스"></textarea>
+        </div>
         <div id="status" role="status"></div>
         <details>
           <summary>문법 가이드</summary>
           <pre>
 component "컴포넌트 이름" #dbeafe {
-  unit adc "drv_adc\n(SWU101.1)\nASIL A" #d6ead0
+  unit adc "drv_adc\n(SWU101.1)\nASIL A" #d6ead0 io #ffcc80
 }
 adc -> led : 전송 항목
 adc -> led #009900 : 녹색 메시지
@@ -57,11 +60,20 @@ space 30
 
 // 주석 · 색상은 #RGB 또는 #RRGGBB
 // 이름의 \n은 줄바꿈
+// 첫 색상은 유닛, io 뒤 색상은 작은 입출력 박스
 // 자기 자신에게 보내는 메시지도 지원</pre
           >
           <p>PlantUML과 유사한 전용 문법입니다. 전체 PlantUML 문법을 지원하지는 않습니다.</p>
         </details>
       </aside>
+      <div
+        id="panel-splitter"
+        role="separator"
+        tabindex="0"
+        aria-label="소스 영역 너비 조절"
+        aria-orientation="vertical"
+        title="드래그 또는 좌우 방향키로 너비 조절"
+      ></div>
       <section class="workspace">
         <div class="toolbar">
           <div>
@@ -104,6 +116,7 @@ space 30
     <script src="../../features/sequence/example.js"></script>
     <script src="../../features/sequence/file-save.js"></script>
     <script src="../../features/sequence/project.js"></script>
+    <script src="../../features/sequence/editor-layout.js"></script>
     <script src="../../features/sequence/editor.js"></script>
   </body>
 </html>
