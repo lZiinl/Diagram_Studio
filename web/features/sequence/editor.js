@@ -1,6 +1,8 @@
 // 이 파일은 화면 이벤트와 브라우저 저장을 담당합니다.
 // 문법 해석과 그림 생성은 diagram.js, 초기 소스는 example.js에서 제공합니다.
 const STORAGE_KEY = 'sequence-source';
+const NAME_STORAGE_KEY = 'sequence-name';
+const DEFAULT_NAME = '새 다이어그램';
 const MAX_PNG_DIMENSION = 8192;
 const DEFAULT_PNG_SCALE = 2;
 
@@ -9,8 +11,19 @@ let svgText = '';
 let isValid = false;
 
 function restoreSource() {
+  getElement('diagram-name').value = DEFAULT_NAME;
   try {
-    getElement('source').value = localStorage.getItem(STORAGE_KEY) || example;
+    const savedSource = localStorage.getItem(STORAGE_KEY);
+    // 과거 기본 예제만 공백을 정리합니다. 사용자가 수정한 작업은 유지합니다.
+    const withoutBlankLines = (value) =>
+      value
+        .split(/\r?\n/)
+        .filter((line) => line.trim())
+        .join('\n');
+    const isOldExample =
+      savedSource && withoutBlankLines(savedSource) === withoutBlankLines(example);
+    getElement('source').value = !savedSource || isOldExample ? example : savedSource;
+    getElement('diagram-name').value = localStorage.getItem(NAME_STORAGE_KEY) || DEFAULT_NAME;
   } catch {
     // 저장소 접근이 제한된 브라우저에서도 편집기는 사용할 수 있어야 합니다.
     getElement('source').value = example;
@@ -20,8 +33,22 @@ function restoreSource() {
 function saveDraft() {
   try {
     localStorage.setItem(STORAGE_KEY, getElement('source').value);
+    localStorage.setItem(NAME_STORAGE_KEY, getDiagramName());
   } catch {
     getElement('status').textContent += ' · 자동 저장 불가';
+  }
+}
+
+function getDiagramName() {
+  return getElement('diagram-name').value.trim() || DEFAULT_NAME;
+}
+
+function updateDiagramName() {
+  document.title = `${getDiagramName()} · Diagram Studio`;
+  try {
+    localStorage.setItem(NAME_STORAGE_KEY, getDiagramName());
+  } catch {
+    // 저장소가 비활성화되어도 이름을 지정하고 파일로 저장할 수 있습니다.
   }
 }
 
@@ -63,21 +90,31 @@ function refresh() {
   getElement('png').disabled = !isValid;
 }
 
-/** Blob을 로컬 파일로 내려받고 다운로드에 사용한 임시 URL을 해제합니다. */
-function download(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-
-  // 브라우저가 다운로드를 시작할 시간을 준 뒤 메모리를 반환합니다.
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+/** 저장 위치 선택은 클릭 직후, 데이터 변환과 파일 쓰기는 그 이후에 수행합니다. */
+async function saveDiagramFile(extension, mimeType, description, createBlob) {
+  try {
+    await DiagramFileSave.save({
+      name: getDiagramName(),
+      extension,
+      mimeType,
+      description,
+      createBlob,
+    });
+  } catch (error) {
+    alert('파일 저장에 실패했습니다: ' + error.message);
+  }
 }
 
 function saveSource() {
-  const blob = new Blob([getElement('source').value], { type: 'text/plain;charset=utf-8' });
-  download(blob, 'diagram.uml');
+  // 주석 메타데이터이므로 기존 문법과 호환되며 불러올 때 이름을 복원할 수 있습니다.
+  const source = getElement('source').value.replace(/^\/\/ @diagram-name:.*(?:\r?\n)?/gm, '');
+  const contents = '// @diagram-name: ' + JSON.stringify(getDiagramName()) + '\n' + source;
+  return saveDiagramFile(
+    '.uml',
+    'text/plain',
+    '다이어그램 소스',
+    () => new Blob([contents], { type: 'text/plain;charset=utf-8' }),
+  );
 }
 
 function exportSvg() {
@@ -85,27 +122,51 @@ function exportSvg() {
     return;
   }
 
-  download(new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' }), 'diagram.svg');
+  const snapshot = svgText;
+  return saveDiagramFile(
+    '.svg',
+    'image/svg+xml',
+    'SVG 이미지',
+    () => new Blob([snapshot], { type: 'image/svg+xml;charset=utf-8' }),
+  );
 }
 
-function downloadPngImage(image) {
-  // 기본 2배 해상도를 사용하되 긴 다이어그램의 캔버스 크기는 제한합니다.
-  const scale = Math.min(
-    DEFAULT_PNG_SCALE,
-    MAX_PNG_DIMENSION / Math.max(image.width, image.height),
-  );
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.ceil(image.width * scale);
-  canvas.height = Math.ceil(image.height * scale);
-  canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+/** 선택 창을 연 뒤 SVG 스냅샷을 PNG Blob으로 변환합니다. */
+function createPngBlob(snapshot) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(new Blob([snapshot], { type: 'image/svg+xml;charset=utf-8' }));
+    const image = new Image();
 
-  canvas.toBlob((blob) => {
-    if (blob) {
-      download(blob, 'diagram.png');
-    } else {
-      alert('PNG 변환에 실패했습니다. SVG로 저장해 주세요.');
-    }
-  }, 'image/png');
+    image.onload = () => {
+      try {
+        const scale = Math.min(
+          DEFAULT_PNG_SCALE,
+          MAX_PNG_DIMENSION / Math.max(image.width, image.height),
+        );
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.ceil(image.width * scale);
+        canvas.height = Math.ceil(image.height * scale);
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('PNG 변환에 실패했습니다. SVG로 저장해 주세요.'));
+          }
+        }, 'image/png');
+      } catch (error) {
+        reject(error);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('이미지를 변환하지 못했습니다.'));
+    };
+    image.src = url;
+  });
 }
 
 function exportPng() {
@@ -113,25 +174,8 @@ function exportPng() {
     return;
   }
 
-  const url = URL.createObjectURL(new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' }));
-  const image = new Image();
-
-  image.onload = () => {
-    try {
-      downloadPngImage(image);
-    } catch (error) {
-      alert('PNG 저장 오류: ' + error.message);
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-  };
-
-  image.onerror = () => {
-    URL.revokeObjectURL(url);
-    alert('이미지를 변환하지 못했습니다.');
-  };
-
-  image.src = url;
+  const snapshot = svgText;
+  return saveDiagramFile('.png', 'image/png', 'PNG 이미지', () => createPngBlob(snapshot));
 }
 
 function restoreExample() {
@@ -153,10 +197,30 @@ async function importSource() {
     return;
   }
 
-  getElement('source').value = await file.text();
-  refresh();
-  // 같은 파일을 다시 선택해도 change 이벤트가 발생하도록 초기화합니다.
-  getElement('file').value = '';
+  try {
+    const contents = await file.text();
+    const metadata = contents.match(/^\/\/ @diagram-name:(.*)$/m);
+    let name = file.name.replace(/\.(uml|puml|txt)$/i, '');
+    if (metadata) {
+      try {
+        const storedName = JSON.parse(metadata[1]);
+        if (typeof storedName === 'string' && storedName.trim()) {
+          name = storedName;
+        }
+      } catch {
+        // 다른 도구에서 만든 주석은 그대로 두고 파일 이름을 사용합니다.
+      }
+    }
+    getElement('source').value = contents;
+    getElement('diagram-name').value = name.slice(0, 120);
+    updateDiagramName();
+    refresh();
+  } catch (error) {
+    alert('소스를 불러오지 못했습니다: ' + error.message);
+  } finally {
+    // 같은 파일을 다시 선택해도 change 이벤트가 발생하도록 초기화합니다.
+    getElement('file').value = '';
+  }
 }
 
 function insertIndent(event) {
@@ -182,8 +246,10 @@ function bindEvents() {
   getElement('load').onclick = () => getElement('file').click();
   getElement('file').onchange = importSource;
   getElement('source').addEventListener('keydown', insertIndent);
+  getElement('diagram-name').addEventListener('input', updateDiagramName);
 }
 
 restoreSource();
+updateDiagramName();
 bindEvents();
 refresh();

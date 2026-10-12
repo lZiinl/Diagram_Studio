@@ -29,6 +29,8 @@
     <!-- 소스 입력과 미리보기는 별도 영역으로 유지합니다. -->
     <main>
       <aside>
+        <label class="diagram-name-label" for="diagram-name">다이어그램 이름</label>
+        <input id="diagram-name" type="text" maxlength="120" placeholder="예: 입력 신호 처리" />
         <div class="panel-title">
           <b>다이어그램 소스</b>
           <button id="example">예제 복원</button>
@@ -91,6 +93,7 @@ space 30
     <!-- 의존 순서: 엔진 → 기본 예제 → 화면 초기화 -->
     <script src="../../features/sequence/diagram.js"></script>
     <script src="../../features/sequence/example.js"></script>
+    <script src="../../features/sequence/file-save.js"></script>
     <script src="../../features/sequence/editor.js"></script>
   </body>
 </html>
