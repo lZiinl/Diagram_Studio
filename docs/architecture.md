@@ -6,6 +6,7 @@
 - `web/pages/<type>/<purpose>.html`: 편집 화면과 문법 안내
 - `web/features/<type>/diagram.js`: DOM과 독립적인 파싱·검증·배치·SVG 생성
 - `web/features/<type>/editor.js`: 입력, 파일 저장, 가져오기, 내보내기
+- `web/features/sequence/example.js`: 편집기와 테스트가 공유하는 기본 예제
 - `web/assets/styles/`: 공통 및 편집기별 스타일
 - `tests/`: 렌더링 회귀 테스트와 페이지 링크 검사
 - `scripts/`: 개발 서버와 배포 파일 생성
@@ -23,4 +24,5 @@
 중앙 저장을 추가하려면 인증·문서별 권한·DB·저장 API가 필요합니다. 실시간 공동 편집에는 동기화와 충돌 처리도 필요하며 현재 구현 범위에는 없습니다.
 
 ## HTML 파일명
+
 소스는 diagram-hub.html, sequence-editor.html, architecture-overview.html처럼 목적을 드러내는 이름을 사용합니다. 로컬 실행 바로가기는 open-diagram-studio.html입니다. 배포 빌드는 GitHub Pages 루트 진입과 기존 북마크 호환을 위해 dist에만 index.html 리다이렉트를 생성합니다. 개발 서버도 기존 URL을 새 파일명으로 연결합니다.

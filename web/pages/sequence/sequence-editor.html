@@ -1,7 +1,45 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sequence Studio · SW 설계</title><link rel="stylesheet" href="../../assets/styles/sequence.css"></head>
-<body><header><div class="brand"><b><a href="../../diagram-hub.html" style="text-decoration:none;color:inherit">◫ Diagram Studio</a></b><span><a href="../../diagram-hub.html">다이어그램 목록</a> / 시퀀스 편집기</span></div><div><button id="load">불러오기</button><button id="save">소스 저장</button><button id="svg">SVG 내보내기</button><button id="png" class="primary">PNG 내보내기</button></div></header>
-<main><aside><div class="panel-title"><b>다이어그램 소스</b><button id="example">예제 복원</button></div><p class="hint">텍스트를 수정하면 다이어그램이 자동으로 정렬됩니다.</p><textarea id="source" spellcheck="false" aria-label="UML 소스"></textarea><div id="status" role="status"></div><details><summary>문법 가이드</summary><pre>component "컴포넌트 이름" #dbeafe {
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Sequence Studio · SW 설계</title>
+    <link rel="stylesheet" href="../../assets/styles/sequence.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <b>
+          <a href="../../diagram-hub.html" style="text-decoration: none; color: inherit">
+            ◫ Diagram Studio
+          </a>
+        </b>
+        <span>
+          <a href="../../diagram-hub.html">다이어그램 목록</a>
+          / 시퀀스 편집기
+        </span>
+      </div>
+      <div>
+        <button id="load">불러오기</button>
+        <button id="save">소스 저장</button>
+        <button id="svg">SVG 내보내기</button>
+        <button id="png" class="primary">PNG 내보내기</button>
+      </div>
+    </header>
+    <!-- 소스 입력과 미리보기는 별도 영역으로 유지합니다. -->
+    <main>
+      <aside>
+        <div class="panel-title">
+          <b>다이어그램 소스</b>
+          <button id="example">예제 복원</button>
+        </div>
+        <p class="hint">텍스트를 수정하면 다이어그램이 자동으로 정렬됩니다.</p>
+        <textarea id="source" spellcheck="false" aria-label="UML 소스"></textarea>
+        <div id="status" role="status"></div>
+        <details>
+          <summary>문법 가이드</summary>
+          <pre>
+component "컴포넌트 이름" #dbeafe {
   unit adc "drv_adc\n(SWU101.1)\nASIL A" #d6ead0
 }
 adc -> led : 전송 항목
@@ -11,6 +49,48 @@ space 30
 
 // 주석 · 색상은 #RGB 또는 #RRGGBB
 // 이름의 \n은 줄바꿈
-// 자기 자신에게 보내는 메시지도 지원</pre><p>PlantUML과 유사한 전용 문법입니다. 전체 PlantUML 문법을 지원하지는 않습니다.</p></details></aside>
-<section class="workspace"><div class="toolbar"><div><span class="dot"></span> LIVE PREVIEW</div><div><label>열 간격 <input id="gap" type="number" min="24" max="240" value="42"></label><label>행 간격 <input id="row" type="number" min="30" max="160" value="48"></label><label>확대 <select id="zoom"><option value="0.75">75%</option><option value="1" selected>100%</option><option value="1.25">125%</option><option value="1.5">150%</option></select></label></div></div><div id="canvas"><div id="diagram"></div></div><footer>상단 컴포넌트 / 유닛 · 자동 정렬 생명선 · 메시지별 입출력 박스 <span>로컬 자동 저장</span></footer></section></main><input id="file" type="file" accept=".txt,.uml,.puml" hidden><script src="../../features/sequence/diagram.js"></script><script src="../../features/sequence/editor.js"></script></body></html>
-
+// 자기 자신에게 보내는 메시지도 지원</pre
+          >
+          <p>PlantUML과 유사한 전용 문법입니다. 전체 PlantUML 문법을 지원하지는 않습니다.</p>
+        </details>
+      </aside>
+      <section class="workspace">
+        <div class="toolbar">
+          <div>
+            <span class="dot"></span>
+            LIVE PREVIEW
+          </div>
+          <div>
+            <label>
+              열 간격
+              <input id="gap" type="number" min="24" max="240" value="42" />
+            </label>
+            <label>
+              행 간격
+              <input id="row" type="number" min="30" max="160" value="48" />
+            </label>
+            <label>
+              확대
+              <select id="zoom">
+                <option value="0.75">75%</option>
+                <option value="1" selected>100%</option>
+                <option value="1.25">125%</option>
+                <option value="1.5">150%</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div id="canvas"><div id="diagram"></div></div>
+        <footer>
+          상단 컴포넌트 / 유닛 · 자동 정렬 생명선 · 메시지별 입출력 박스
+          <span>로컬 자동 저장</span>
+        </footer>
+      </section>
+    </main>
+    <input id="file" type="file" accept=".txt,.uml,.puml" hidden />
+    <!-- 의존 순서: 엔진 → 기본 예제 → 화면 초기화 -->
+    <script src="../../features/sequence/diagram.js"></script>
+    <script src="../../features/sequence/example.js"></script>
+    <script src="../../features/sequence/editor.js"></script>
+  </body>
+</html>
