@@ -8,7 +8,9 @@ const root = path.resolve(__dirname, '../dist');
 
 for (const [file, target] of Object.entries({
   'index.html': 'diagram-hub.html',
-  'pages/sequence/index.html': 'sequence-editor.html',
+  'pages/dynamic/index.html': 'dynamic-editor.html',
+  'pages/sequence/index.html': '../dynamic/dynamic-editor.html',
+  'pages/sequence/sequence-editor.html': '../dynamic/dynamic-editor.html',
   'pages/architecture/index.html': 'architecture-overview.html',
 })) {
   const html = fs.readFileSync(path.join(root, file), 'utf8');

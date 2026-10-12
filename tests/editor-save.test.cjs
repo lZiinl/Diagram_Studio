@@ -73,7 +73,7 @@ function createEditor(picker, initialStorage = []) {
     'editor-layout',
     'editor',
   ]) {
-    vm.runInContext(fs.readFileSync(`web/features/sequence/${filename}.js`, 'utf8'), context);
+    vm.runInContext(fs.readFileSync(`web/features/dynamic/${filename}.js`, 'utf8'), context);
   }
   return { context, elements, storage, alerts };
 }
@@ -102,7 +102,7 @@ async function run() {
   splitter.listeners.pointermove({ clientX: 460 });
   splitter.listeners.pointerup();
   assert.equal(editor.elements.get('editor-main').style['--sidebar-width'], '460px');
-  assert.equal(editor.storage.get('sequence-sidebar-width'), '460');
+  assert.equal(editor.storage.get('dynamic-sidebar-width'), '460');
   // 임의 배율, 양 끝 범위, 범위 밖 입력과 입력 중 빈 값을 검사합니다.
   for (const [requested, expected] of [
     ['50', 50],
@@ -119,7 +119,7 @@ async function run() {
   }
   editor.elements.get('diagram-name').value = '입력 처리';
   vm.runInContext('updateDiagramName()', editor.context);
-  assert.equal(editor.storage.get('sequence-name'), '입력 처리');
+  assert.equal(editor.storage.get('dynamic-name'), '입력 처리');
   await vm.runInContext('saveSource()', editor.context);
   assert.equal(requests[0].suggestedName, '입력 처리.uml');
   assert.match(await savedBlobs[0].text(), /^\/\/ @diagram-name: "입력 처리"/);
@@ -183,7 +183,7 @@ async function run() {
   assert.equal(editor.elements.get('source').value, '두 번째 탭');
   assert.equal(editor.alerts.length, 1);
 
-  const projectApi = require('../web/features/sequence/project.js');
+  const projectApi = require('../web/features/dynamic/project.js');
   assert.throws(() => projectApi.parse(JSON.stringify({ ...savedProject, version: 999 })));
   assert.throws(() =>
     projectApi.parse(
@@ -197,6 +197,11 @@ async function run() {
   ]);
   assert.equal(migrated.elements.get('source').value, '기존 작업');
   assert.equal(migrated.elements.get('diagram-name').value, '이전 이름');
+  assert.ok(migrated.storage.has('dynamic-project-v1'));
+  const legacyProject = createEditor(undefined, [
+    ['sequence-project-v1', JSON.stringify(savedProject)],
+  ]);
+  assert.equal(legacyProject.elements.get('source').value, '아직 작성 중');
 
   console.log(
     'PASS: example spacing, name persistence, source round-trip, save formats and cancellation',

@@ -3,7 +3,7 @@
   'use strict';
 
   const DEFAULT_WIDTH = 312; // 기존 390px의 80%
-  const WIDTH_KEY = 'sequence-sidebar-width';
+  const WIDTH_KEY = 'dynamic-sidebar-width';
   let errorLine = 0;
   let measureElement = null;
 
@@ -48,7 +48,9 @@
     const splitter = document.getElementById('panel-splitter');
     let width = DEFAULT_WIDTH;
     try {
-      width = Number(localStorage.getItem(WIDTH_KEY)) || DEFAULT_WIDTH;
+      width =
+        Number(localStorage.getItem(WIDTH_KEY) ?? localStorage.getItem('sequence-sidebar-width')) ||
+        DEFAULT_WIDTH;
     } catch {
       // 브라우저 저장이 차단되어도 드래그 조절은 가능합니다.
     }

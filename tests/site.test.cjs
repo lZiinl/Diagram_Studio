@@ -33,13 +33,13 @@ console.log('PASS: all page links and script/style paths exist');
 
 for (const page of [
   'diagram-hub.html',
-  'pages/sequence/sequence-editor.html',
+  'pages/dynamic/dynamic-editor.html',
   'pages/architecture/architecture-overview.html',
 ]) {
   assert.ok(fs.existsSync(path.join(root, page)));
 }
 
-for (const legacy of ['index.html', 'pages/sequence/index.html', 'pages/architecture/index.html']) {
+for (const legacy of ['index.html', 'pages/dynamic/index.html', 'pages/architecture/index.html']) {
   assert.ok(!fs.existsSync(path.join(root, legacy)), 'Legacy source page remains: ' + legacy);
 }
 

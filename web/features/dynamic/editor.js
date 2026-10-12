@@ -1,7 +1,7 @@
 // 이 파일은 화면 이벤트와 브라우저 저장을 담당합니다.
 // 문법 해석과 그림 생성은 diagram.js, 초기 소스는 example.js에서 제공합니다.
-const STORAGE_KEY = 'sequence-source';
-const NAME_STORAGE_KEY = 'sequence-name';
+const STORAGE_KEY = 'dynamic-source';
+const NAME_STORAGE_KEY = 'dynamic-name';
 const DEFAULT_NAME = '새 다이어그램';
 const MAX_PNG_DIMENSION = 8192;
 const DEFAULT_PNG_SCALE = 2;
@@ -10,7 +10,11 @@ const getElement = (id) => document.getElementById(id);
 let svgText = '';
 let isValid = false;
 let zoomPercent = 100;
-const PROJECT_STORAGE_KEY = 'sequence-project-v1';
+const PROJECT_STORAGE_KEY = 'dynamic-project-v1';
+// 이전 사이트의 자동 저장은 읽기만 하며 새 키가 있으면 새 데이터를 우선합니다.
+function readSavedValue(key) {
+  return localStorage.getItem(key) ?? localStorage.getItem(key.replace(/^dynamic-/, 'sequence-'));
+}
 let project = null;
 let projectAutoSave = true;
 
@@ -129,7 +133,7 @@ function restoreProject() {
   // 기존 단일 다이어그램을 첫 탭으로 이관하며 이전 저장 키도 남겨 둡니다.
   project = DiagramProject.create('새 프로젝트', getElement('source').value, getDiagramName());
   try {
-    const stored = localStorage.getItem(PROJECT_STORAGE_KEY);
+    const stored = readSavedValue(PROJECT_STORAGE_KEY);
     if (stored) {
       project = DiagramProject.parse(stored);
     }
@@ -186,7 +190,7 @@ async function importProject() {
 function restoreSource() {
   getElement('diagram-name').value = DEFAULT_NAME;
   try {
-    const savedSource = localStorage.getItem(STORAGE_KEY);
+    const savedSource = readSavedValue(STORAGE_KEY);
     // 과거 기본 예제만 공백을 정리합니다. 사용자가 수정한 작업은 유지합니다.
     const withoutBlankLines = (value) =>
       value
@@ -196,7 +200,7 @@ function restoreSource() {
     const isOldExample =
       savedSource && withoutBlankLines(savedSource) === withoutBlankLines(example);
     getElement('source').value = !savedSource || isOldExample ? example : savedSource;
-    getElement('diagram-name').value = localStorage.getItem(NAME_STORAGE_KEY) || DEFAULT_NAME;
+    getElement('diagram-name').value = readSavedValue(NAME_STORAGE_KEY) || DEFAULT_NAME;
   } catch {
     // 저장소 접근이 제한된 브라우저에서도 편집기는 사용할 수 있어야 합니다.
     getElement('source').value = example;
@@ -217,7 +221,7 @@ function getDiagramName() {
 }
 
 function updateDiagramName() {
-  document.title = `${getDiagramName()} · Diagram Studio`;
+  document.title = `${getDiagramName()} · 다이나믹 다이어그램 · Diagram Studio`;
   try {
     localStorage.setItem(NAME_STORAGE_KEY, getDiagramName());
   } catch {

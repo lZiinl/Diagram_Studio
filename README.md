@@ -11,7 +11,7 @@ SW 설계 문서용 텍스트 기반 다이어그램 편집기입니다. 외부 
 
 브라우저 실행에는 외부 패키지가 필요하지 않습니다. 개발할 때는 Node 22.13 이상과 pnpm 11.25.0을 사용하고 `pnpm install --frozen-lockfile`로 포맷터를 설치합니다. pnpm 버전은 package.json에 고정되어 있습니다.
 
-`pnpm format`으로 코드를 정리하고 `pnpm format:check`로 확인합니다. `pnpm test`와 `pnpm build`로 검증·빌드를 실행합니다. CI도 같은 순서로 확인합니다. 실행·테스트·빌드만 필요한 경우에는 `node scripts/serve.cjs`, `node tests/sequence.test.cjs`, `node tests/site.test.cjs`, `node tests/build.test.cjs`를 직접 실행할 수 있습니다.
+`pnpm format`으로 코드를 정리하고 `pnpm format:check`로 확인합니다. `pnpm test`와 `pnpm build`로 검증·빌드를 실행합니다. CI도 같은 순서로 확인합니다. 실행·테스트·빌드만 필요한 경우에는 `node scripts/serve.cjs`, `node tests/dynamic.test.cjs`, `node tests/site.test.cjs`, `node tests/build.test.cjs`를 직접 실행할 수 있습니다.
 
 ## 코드 작성 규칙
 
@@ -27,11 +27,11 @@ SW 설계 문서용 텍스트 기반 다이어그램 편집기입니다. 외부 
 
 ## 페이지
 
-| 페이지      | 상태           | 기능                                              |
-| ----------- | -------------- | ------------------------------------------------- |
-| 홈          | 사용 가능      | 다이어그램 선택                                   |
-| 시퀀스      | 사용 가능      | 컴포넌트·유닛, 메시지, 점선, 입출력 박스, SVG/PNG |
-| SW 아키텍처 | 개발 예정 안내 | 추후 포트·신호 연결 편집기 확장                   |
+| 페이지              | 상태           | 기능                                              |
+| ------------------- | -------------- | ------------------------------------------------- |
+| 홈                  | 사용 가능      | 다이어그램 선택                                   |
+| 다이나믹 다이어그램 | 사용 가능      | 컴포넌트·유닛, 메시지, 점선, 입출력 박스, SVG/PNG |
+| SW 아키텍처         | 개발 예정 안내 | 추후 포트·신호 연결 편집기 확장                   |
 
 ## 파일 트리
 
@@ -45,13 +45,13 @@ SW 설계 문서용 텍스트 기반 다이어그램 편집기입니다. 외부 
 │   ├── build.cjs                # web → dist
 │   └── serve.cjs                # 개발 서버
 ├── tests/
-│   ├── sequence.test.cjs        # 렌더링 회귀 검사
+│   ├── dynamic.test.cjs        # 렌더링 회귀 검사
 │   └── site.test.cjs            # 링크·리소스 검사
 ├── web/                        # 웹사이트 루트
 │   ├── assets/styles/          # 공통·편집기 CSS
-│   ├── features/sequence/      # 렌더러·편집 로직
+│   ├── features/dynamic/      # 렌더러·편집 로직
 │   ├── pages/
-│   │   ├── sequence/sequence-editor.html
+│   │   ├── dynamic/dynamic-editor.html
 │   │   └── architecture/architecture-overview.html
 │   └── diagram-hub.html              # 홈
 ├── .gitignore
@@ -60,7 +60,7 @@ SW 설계 문서용 텍스트 기반 다이어그램 편집기입니다. 외부 
 └── README.md
 ```
 
-## 시퀀스 문법
+## 다이나믹 다이어그램 문법
 
 유닛 박스는 `Appl_WakeUpSleep`이 들어가는 160px을 기본 폭으로 사용하고, 더 긴 이름에는 필요한 폭을 확보합니다. 컴포넌트 제목과 메시지는 강제로 줄바꿈하지 않습니다. 제목에 맞춰 컴포넌트를 넓히고 내부 유닛을 가운데 정렬하며, 긴 메시지는 열 사이 공간을 늘려 표시합니다. 따라서 내용에 따라 실제 여백은 달라질 수 있습니다. 줄바꿈이 필요하면 소스에 `\n`을 직접 넣으세요.
 

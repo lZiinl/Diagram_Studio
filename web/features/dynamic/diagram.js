@@ -1,4 +1,4 @@
-// DOM 없이 실행되는 시퀀스 엔진입니다. 브라우저와 Node 테스트에서 함께 사용합니다.
+// DOM 없이 실행되는 다이나믹 다이어그램 엔진입니다. 브라우저와 Node 테스트에서 함께 사용합니다.
 (function (root) {
   'use strict';
 
@@ -363,7 +363,7 @@
 
     let svg =
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" ` +
-      `viewBox="0 0 ${width} ${height}" role="img" aria-label="소프트웨어 컴포넌트 시퀀스 다이어그램">` +
+      `viewBox="0 0 ${width} ${height}" role="img" aria-label="소프트웨어 컴포넌트 다이나믹 다이어그램">` +
       '<rect width="100%" height="100%" fill="white"/>';
     svg += renderHeaders(components, unitHeight, headerBottom, unitTop);
 

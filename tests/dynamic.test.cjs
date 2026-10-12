@@ -1,8 +1,8 @@
 const assert = require('node:assert/strict');
-const { parse, render } = require('../web/features/sequence/diagram.js');
+const { parse, render } = require('../web/features/dynamic/diagram.js');
 // 실제 초기 화면에 사용하는 예제로 렌더링을 검증합니다.
 // 편집기 소스 문자열을 잘라 실행하지 않으므로 코드 형식에 영향을 받지 않습니다.
-const example = require('../web/features/sequence/example.js');
+const example = require('../web/features/dynamic/example.js');
 const exampleModel = parse(example);
 const exampleSvg = render(exampleModel);
 assert.equal(exampleModel.units.length, 6);

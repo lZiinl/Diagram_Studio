@@ -29,8 +29,11 @@ http
       const routes = {
         '/': '/diagram-hub.html',
         '/index.html': '/diagram-hub.html',
-        '/pages/sequence/': '/pages/sequence/sequence-editor.html',
-        '/pages/sequence/index.html': '/pages/sequence/sequence-editor.html',
+        '/pages/dynamic/': '/pages/dynamic/dynamic-editor.html',
+        '/pages/dynamic/index.html': '/pages/dynamic/dynamic-editor.html',
+        '/pages/sequence/': '/pages/dynamic/dynamic-editor.html',
+        '/pages/sequence/index.html': '/pages/dynamic/dynamic-editor.html',
+        '/pages/sequence/sequence-editor.html': '/pages/dynamic/dynamic-editor.html',
         '/pages/architecture/': '/pages/architecture/architecture-overview.html',
         '/pages/architecture/index.html': '/pages/architecture/architecture-overview.html',
       };
