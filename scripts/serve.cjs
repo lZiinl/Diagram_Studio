@@ -7,7 +7,16 @@ http.createServer((req,res)=>{
   const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
   let target=path.resolve(root,'.'+pathname);
   if(target!==root&&!target.startsWith(root+path.sep)){res.writeHead(403).end();return;}
-  if(fs.statSync(target).isDirectory())target=path.join(target,'index.html');
+  const routes={
+   '/':'/diagram-hub.html',
+   '/index.html':'/diagram-hub.html',
+   '/pages/sequence/':'/pages/sequence/sequence-editor.html',
+   '/pages/sequence/index.html':'/pages/sequence/sequence-editor.html',
+   '/pages/architecture/':'/pages/architecture/architecture-overview.html',
+   '/pages/architecture/index.html':'/pages/architecture/architecture-overview.html'
+  };
+  const route=routes[pathname]||routes[pathname+'/'];
+  if(route){res.writeHead(302,{Location:route}).end();return;}
   target=fs.realpathSync(target);
   if(!target.startsWith(root+path.sep)){res.writeHead(403).end();return;}
   if(!['GET','HEAD'].includes(req.method)){res.writeHead(405).end();return;}

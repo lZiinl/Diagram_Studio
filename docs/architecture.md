@@ -2,8 +2,8 @@
 
 프레임워크 없이 동작하는 정적 다중 페이지 앱입니다. 상대 링크와 일반 script를 사용하여 file:// 실행과 하위 경로 호스팅을 지원합니다.
 
-- `web/index.html`: 다이어그램 선택 화면
-- `web/pages/<type>/index.html`: 편집 화면과 문법 안내
+- `web/diagram-hub.html`: 다이어그램 선택 화면
+- `web/pages/<type>/<purpose>.html`: 편집 화면과 문법 안내
 - `web/features/<type>/diagram.js`: DOM과 독립적인 파싱·검증·배치·SVG 생성
 - `web/features/<type>/editor.js`: 입력, 파일 저장, 가져오기, 내보내기
 - `web/assets/styles/`: 공통 및 편집기별 스타일
@@ -21,3 +21,6 @@
 기존 시퀀스 문법과 sequence-source 저장 키를 유지합니다. localStorage는 브라우저·접속 출처에 종속되며 file://에서의 동작은 브라우저별로 다릅니다. 경로 변경 전에 기존 페이지에서 소스를 파일로 저장하고 새 편집기에서 불러오세요.
 
 중앙 저장을 추가하려면 인증·문서별 권한·DB·저장 API가 필요합니다. 실시간 공동 편집에는 동기화와 충돌 처리도 필요하며 현재 구현 범위에는 없습니다.
+
+## HTML 파일명
+소스는 diagram-hub.html, sequence-editor.html, architecture-overview.html처럼 목적을 드러내는 이름을 사용합니다. 로컬 실행 바로가기는 open-diagram-studio.html입니다. 배포 빌드는 GitHub Pages 루트 진입과 기존 북마크 호환을 위해 dist에만 index.html 리다이렉트를 생성합니다. 개발 서버도 기존 URL을 새 파일명으로 연결합니다.

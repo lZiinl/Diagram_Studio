@@ -4,7 +4,7 @@ SW 설계 문서용 텍스트 기반 다이어그램 편집기입니다. 외부 
 
 ## 실행 및 검증
 
-- 설치 없이 실행: 루트 index.html 또는 web/index.html을 브라우저에서 열기
+- 설치 없이 실행: 루트 open-diagram-studio.html 또는 web/diagram-hub.html을 브라우저에서 열기
 - 개발 서버: Node 22 이상에서 `npm start` → http://127.0.0.1:8765
 - 테스트: `npm test`
 - 배포 산출물: `npm run build` → dist/
@@ -39,11 +39,11 @@ SW 설계 문서용 텍스트 기반 다이어그램 편집기입니다. 외부 
 │   ├── assets/styles/          # 공통·편집기 CSS
 │   ├── features/sequence/      # 렌더러·편집 로직
 │   ├── pages/
-│   │   ├── sequence/index.html
-│   │   └── architecture/index.html
-│   └── index.html              # 홈
+│   │   ├── sequence/sequence-editor.html
+│   │   └── architecture/architecture-overview.html
+│   └── diagram-hub.html              # 홈
 ├── .gitignore
-├── index.html                  # 기존 진입 경로
+├── open-diagram-studio.html                  # 기존 진입 경로
 ├── package.json
 └── README.md
 ```

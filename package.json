@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node scripts/serve.cjs",
     "build": "node scripts/build.cjs",
-    "test": "node tests/sequence.test.cjs && node tests/site.test.cjs"
+    "test": "node tests/sequence.test.cjs && node tests/site.test.cjs && node tests/build.test.cjs"
   },
   "engines": { "node": ">=22" }
 }
