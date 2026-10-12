@@ -20,7 +20,7 @@ Git에 올리는 것만으로 사이트가 배포되지는 않습니다. GitHub 
 5. 사내 HTTPS 주소를 팀원에게 공유합니다. `/diagram-studio/` 같은 하위 경로도 지원합니다.
 6. 업데이트는 테스트·빌드 후 서버 배포 디렉터리를 새 산출물로 교체합니다.
 
-dist는 Git에서 제외됩니다. 제공 GitHub Actions는 검사만 하며 배포하지 않습니다. 실제 배포 자동화는 Git 서비스와 서버가 정해진 뒤 연결합니다. 원격 저장소와 배포 대상은 아직 설정하지 않았습니다.
+dist는 Git에서 제외됩니다. check.yml은 검사를 수행하고 pages.yml은 main에 push할 때 테스트·빌드 후 dist를 GitHub Pages에 배포합니다. GitHub Settings → Pages → Source를 GitHub Actions로 설정하세요. Actions → Deploy GitHub Pages에서 진행 상태와 배포 주소를 확인할 수 있습니다. workflow_dispatch를 통해 main에서 수동 실행도 가능합니다. 실제 배포 성공 여부는 GitHub Actions 실행 결과로 확인해야 합니다.
 
 ## 임시 시연 (PowerShell)
 

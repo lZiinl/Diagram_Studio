@@ -25,7 +25,7 @@ SW 설계 문서용 텍스트 기반 다이어그램 편집기입니다. 외부 
 
 ```text
 .
-├── .github/workflows/check.yml  # 검사 CI (배포 없음)
+├── .github/workflows/           # 검사 CI 및 Pages 자동 배포
 ├── docs/
 │   ├── architecture.md          # 확장 구조
 │   └── deployment.md            # 팀 배포 방법
