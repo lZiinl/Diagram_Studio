@@ -79,6 +79,27 @@ function createEditor(picker, initialStorage = []) {
 }
 
 async function run() {
+  const toolsEditor = createEditor();
+  const toolsSource = toolsEditor.elements.get('source');
+  vm.runInContext('addTab(); addTab()', toolsEditor.context);
+  toolsSource.value = '작성 중 소스';
+  const lastId = vm.runInContext('project.activeTabId', toolsEditor.context);
+  const tabButtons = toolsEditor.elements.get('diagram-tabs').children;
+  tabButtons[2].ondragstart({ dataTransfer: { setData() {} } });
+  tabButtons[1].ondrop({ preventDefault() {} });
+  let reordered = JSON.parse(toolsEditor.storage.get('dynamic-project-v1'));
+  assert.equal(reordered.tabs[1].id, lastId);
+  assert.equal(reordered.activeTabId, lastId);
+  assert.equal(reordered.tabs[1].source, '작성 중 소스');
+  vm.runInContext(
+    'reorderTab(project.activeTabId, 0); reorderTab(project.activeTabId, -1)',
+    toolsEditor.context,
+  );
+  reordered = JSON.parse(toolsEditor.storage.get('dynamic-project-v1'));
+  assert.equal(reordered.tabs[0].id, lastId);
+  const restoredOrder = createEditor(undefined, [...toolsEditor.storage]);
+  assert.equal(vm.runInContext('project.tabs[0].id', restoredOrder.context), lastId);
+
   const requests = [];
   const savedBlobs = [];
   const editor = createEditor(async (options) => {

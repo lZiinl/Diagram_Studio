@@ -295,6 +295,7 @@ footer span {
 /* 탭 수가 늘면 탭 목록만 가로로 스크롤하고 작업 버튼은 유지합니다. */
 .tab-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 10px;

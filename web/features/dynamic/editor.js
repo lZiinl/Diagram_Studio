@@ -18,6 +18,7 @@ function readSavedValue(key) {
 }
 let project = null;
 let projectAutoSave = true;
+let draggedTabId = null;
 
 function activeTab() {
   return project.tabs.find((tab) => tab.id === project.activeTabId);
@@ -60,6 +61,27 @@ function renderTabs() {
     button.tabIndex = tab.id === project.activeTabId ? 0 : -1;
     button.onclick = () => switchTab(tab.id);
     button.ondblclick = renameTab;
+    button.draggable = true;
+    button.title = '드래그로 순서 변경';
+    button.ondragstart = (event) => {
+      draggedTabId = tab.id;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', tab.id);
+    };
+    button.ondragover = (event) => {
+      if (draggedTabId) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+      }
+    };
+    button.ondrop = (event) => {
+      event.preventDefault();
+      reorderTab(draggedTabId, index);
+      draggedTabId = null;
+    };
+    button.ondragend = () => {
+      draggedTabId = null;
+    };
     button.onkeydown = (event) => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
         return;
@@ -78,6 +100,24 @@ function renderTabs() {
     container.appendChild(button);
   });
   getElement('delete-tab').disabled = project.tabs.length === 1;
+}
+
+/** 탭을 지정한 순서로 옮기고 저장합니다. 선택된 탭과 작성 중 소스는 유지합니다. */
+function reorderTab(id, destination) {
+  const origin = project.tabs.findIndex((tab) => tab.id === id);
+  if (
+    origin < 0 ||
+    destination < 0 ||
+    destination >= project.tabs.length ||
+    origin === destination
+  ) {
+    return;
+  }
+  captureActiveTab();
+  const [tab] = project.tabs.splice(origin, 1);
+  project.tabs.splice(destination, 0, tab);
+  persistProject();
+  renderTabs();
 }
 
 function showActiveTab() {
