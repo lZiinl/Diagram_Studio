@@ -1,0 +1,12 @@
+{
+  "name": "sw-diagram-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser-based software design diagram editors",
+  "scripts": {
+    "start": "node scripts/serve.cjs",
+    "build": "node scripts/build.cjs",
+    "test": "node tests/sequence.test.cjs && node tests/site.test.cjs"
+  },
+  "engines": { "node": ">=22" }
+}

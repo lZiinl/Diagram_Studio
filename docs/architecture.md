@@ -1,0 +1,23 @@
+# 구조와 확장
+
+프레임워크 없이 동작하는 정적 다중 페이지 앱입니다. 상대 링크와 일반 script를 사용하여 file:// 실행과 하위 경로 호스팅을 지원합니다.
+
+- `web/index.html`: 다이어그램 선택 화면
+- `web/pages/<type>/index.html`: 편집 화면과 문법 안내
+- `web/features/<type>/diagram.js`: DOM과 독립적인 파싱·검증·배치·SVG 생성
+- `web/features/<type>/editor.js`: 입력, 파일 저장, 가져오기, 내보내기
+- `web/assets/styles/`: 공통 및 편집기별 스타일
+- `tests/`: 렌더링 회귀 테스트와 페이지 링크 검사
+- `scripts/`: 개발 서버와 배포 파일 생성
+
+새 편집기는 pages와 features에 유형별 폴더를 만들고 홈에 연결합니다. 해당 테스트를 tests에 추가하여 package.json의 test 명령에 연결합니다. 공통 내보내기 등은 두 편집기에서 실제로 필요해지는 시점에 features/shared로 추출합니다.
+
+## SW 아키텍처 편집기
+
+현재는 개발 범위 안내 페이지입니다. 향후 `component → unit → port` 구조와 `signal(sourcePort, targetPort, kind)` 연결 모델을 도입합니다. 시간축 기반 시퀀스와 분리된 렌더러가 필요합니다. 주요 구현 대상은 계층 배치, 직각 경로, 분기점, 라벨 충돌 방지, 신호 종류별 색상과 범례입니다.
+
+## 저장
+
+기존 시퀀스 문법과 sequence-source 저장 키를 유지합니다. localStorage는 브라우저·접속 출처에 종속되며 file://에서의 동작은 브라우저별로 다릅니다. 경로 변경 전에 기존 페이지에서 소스를 파일로 저장하고 새 편집기에서 불러오세요.
+
+중앙 저장을 추가하려면 인증·문서별 권한·DB·저장 API가 필요합니다. 실시간 공동 편집에는 동기화와 충돌 처리도 필요하며 현재 구현 범위에는 없습니다.
