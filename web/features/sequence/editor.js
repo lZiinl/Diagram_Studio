@@ -9,6 +9,179 @@ const DEFAULT_PNG_SCALE = 2;
 const getElement = (id) => document.getElementById(id);
 let svgText = '';
 let isValid = false;
+let zoomPercent = 100;
+const PROJECT_STORAGE_KEY = 'sequence-project-v1';
+let project = null;
+let projectAutoSave = true;
+
+function activeTab() {
+  return project.tabs.find((tab) => tab.id === project.activeTabId);
+}
+
+// 소스가 파싱되지 않는 작성 중 상태도 탭 전환 시 그대로 보관합니다.
+function captureActiveTab() {
+  if (!project) {
+    return;
+  }
+  const tab = activeTab();
+  tab.name = getDiagramName();
+  tab.source = getElement('source').value;
+  tab.gap = Math.max(24, Math.min(240, Number(getElement('gap').value) || 42));
+  tab.row = Math.max(30, Math.min(160, Number(getElement('row').value) || 48));
+  tab.zoom = zoomPercent;
+  project.name = getElement('project-name').value.trim() || '새 프로젝트';
+}
+
+function persistProject() {
+  captureActiveTab();
+  if (!projectAutoSave) {
+    return;
+  }
+  try {
+    localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(project));
+  } catch {
+    getElement('status').textContent += ' · 프로젝트 자동 저장 불가';
+  }
+}
+
+function renderTabs() {
+  const container = getElement('diagram-tabs');
+  container.replaceChildren();
+  project.tabs.forEach((tab, index) => {
+    const button = document.createElement('button');
+    button.textContent = tab.name;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', String(tab.id === project.activeTabId));
+    button.tabIndex = tab.id === project.activeTabId ? 0 : -1;
+    button.onclick = () => switchTab(tab.id);
+    button.ondblclick = renameTab;
+    button.onkeydown = (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+        return;
+      }
+      event.preventDefault();
+      const count = project.tabs.length;
+      const next =
+        event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? count - 1
+            : (index + (event.key === 'ArrowRight' ? 1 : -1) + count) % count;
+      switchTab(project.tabs[next].id);
+      container.children[next].focus();
+    };
+    container.appendChild(button);
+  });
+  getElement('delete-tab').disabled = project.tabs.length === 1;
+}
+
+function showActiveTab() {
+  const tab = activeTab();
+  getElement('source').value = tab.source;
+  getElement('diagram-name').value = tab.name;
+  getElement('project-name').value = project.name;
+  getElement('gap').value = String(tab.gap);
+  getElement('row').value = String(tab.row);
+  getElement('zoom').value = String(tab.zoom);
+  zoomPercent = tab.zoom;
+  // 다른 탭의 그림을 현재 탭의 결과로 오해하지 않도록 미리보기를 초기화합니다.
+  svgText = '';
+  getElement('diagram').innerHTML = '';
+  updateDiagramName();
+  renderTabs();
+  refresh();
+}
+
+function switchTab(id) {
+  captureActiveTab();
+  project.activeTabId = id;
+  showActiveTab();
+}
+
+function addTab() {
+  captureActiveTab();
+  const tab = DiagramProject.createTab(`다이어그램 ${project.tabs.length + 1}`, '');
+  project.tabs.push(tab);
+  project.activeTabId = tab.id;
+  showActiveTab();
+}
+
+function renameTab() {
+  const name = prompt('다이어그램 탭 이름을 입력하세요.', getDiagramName());
+  if (name === null || !name.trim()) {
+    return;
+  }
+  getElement('diagram-name').value = name.trim().slice(0, 120);
+  updateDiagramName();
+}
+
+function deleteTab() {
+  if (project.tabs.length === 1 || !confirm(`“${getDiagramName()}” 탭을 삭제할까요?`)) {
+    return;
+  }
+  const index = project.tabs.findIndex((tab) => tab.id === project.activeTabId);
+  project.tabs.splice(index, 1);
+  project.activeTabId = project.tabs[Math.min(index, project.tabs.length - 1)].id;
+  showActiveTab();
+}
+
+function restoreProject() {
+  // 기존 단일 다이어그램을 첫 탭으로 이관하며 이전 저장 키도 남겨 둡니다.
+  project = DiagramProject.create('새 프로젝트', getElement('source').value, getDiagramName());
+  try {
+    const stored = localStorage.getItem(PROJECT_STORAGE_KEY);
+    if (stored) {
+      project = DiagramProject.parse(stored);
+    }
+  } catch {
+    // 손상된 프로젝트를 초기 상태로 덮어쓰지 않습니다.
+    projectAutoSave = false;
+    alert(
+      '저장된 프로젝트를 읽지 못했습니다. 기존 데이터는 보존됩니다. 작업은 프로젝트 저장으로 백업해 주세요.',
+    );
+  }
+  showActiveTab();
+}
+
+async function saveProject() {
+  captureActiveTab();
+  const contents = JSON.stringify(project, null, 2);
+  try {
+    await DiagramFileSave.save({
+      name: project.name,
+      extension: '.json',
+      mimeType: 'application/json',
+      description: 'Diagram Studio 프로젝트',
+      createBlob: () => new Blob([contents], { type: 'application/json' }),
+    });
+  } catch (error) {
+    alert('프로젝트 저장에 실패했습니다: ' + error.message);
+  }
+}
+
+async function importProject() {
+  const file = getElement('project-file').files[0];
+  if (!file) {
+    return;
+  }
+  try {
+    const imported = DiagramProject.parse(await file.text());
+    if (
+      !confirm(
+        '현재 프로젝트를 불러온 프로젝트로 바꿀까요? 필요한 작업은 먼저 프로젝트 저장으로 보관하세요.',
+      )
+    ) {
+      return;
+    }
+    project = imported;
+    projectAutoSave = true;
+    showActiveTab();
+  } catch (error) {
+    alert('프로젝트를 불러오지 못했습니다: ' + error.message);
+  } finally {
+    getElement('project-file').value = '';
+  }
+}
 
 function restoreSource() {
   getElement('diagram-name').value = DEFAULT_NAME;
@@ -50,15 +223,33 @@ function updateDiagramName() {
   } catch {
     // 저장소가 비활성화되어도 이름을 지정하고 파일로 저장할 수 있습니다.
   }
+  if (project) {
+    persistProject();
+    renderTabs();
+  }
 }
 
 function applyPreviewZoom() {
   const svg = getElement('diagram').firstElementChild;
-  const zoom = Number(getElement('zoom').value);
+  const input = getElement('zoom').value;
+  const requestedPercent = Number(input);
+  // 숫자를 지우고 다시 입력하는 동안은 마지막 배율을 유지합니다.
+  if (input !== '' && Number.isFinite(requestedPercent)) {
+    zoomPercent = Math.max(50, Math.min(200, requestedPercent));
+  }
+  if (!svg) {
+    return;
+  }
+  const zoom = zoomPercent / 100;
 
   // 미리보기 크기만 조절합니다. 내보내는 SVG의 원래 좌표와 크기는 유지합니다.
   svg.style.width = Number(svg.getAttribute('width')) * zoom + 'px';
   svg.style.height = Number(svg.getAttribute('height')) * zoom + 'px';
+}
+
+function normalizeZoomInput() {
+  applyPreviewZoom();
+  getElement('zoom').value = String(zoomPercent);
 }
 
 /** 소스를 검증하고 미리보기를 갱신합니다. 오류 시 마지막 정상 그림을 유지합니다. */
@@ -82,12 +273,17 @@ function refresh() {
   } catch (error) {
     isValid = false;
     getElement('status').className = 'error';
-    getElement('status').textContent = error.message + ' (마지막 정상 미리보기 유지)';
+    getElement('status').textContent = getElement('source').value.trim()
+      ? error.message + (svgText ? ' (마지막 정상 미리보기 유지)' : '')
+      : '새 탭에 다이어그램 소스를 입력하세요.';
   }
 
   // 잘못된 소스와 이전 그림이 혼동되지 않도록 오류 중에는 이미지 저장을 막습니다.
   getElement('svg').disabled = !isValid;
   getElement('png').disabled = !isValid;
+  if (project) {
+    persistProject();
+  }
 }
 
 /** 저장 위치 선택은 클릭 직후, 데이터 변환과 파일 쓰기는 그 이후에 수행합니다. */
@@ -235,9 +431,16 @@ function insertIndent(event) {
 }
 
 function bindEvents() {
-  for (const id of ['source', 'gap', 'row', 'zoom']) {
+  for (const id of ['source', 'gap', 'row']) {
     getElement(id).addEventListener('input', refresh);
   }
+
+  // 확대는 미리보기만 변경하므로 소스를 재해석하거나 자동 저장할 필요가 없습니다.
+  getElement('zoom').addEventListener('input', () => {
+    applyPreviewZoom();
+    persistProject();
+  });
+  getElement('zoom').addEventListener('change', normalizeZoomInput);
 
   getElement('save').onclick = saveSource;
   getElement('svg').onclick = exportSvg;
@@ -247,9 +450,15 @@ function bindEvents() {
   getElement('file').onchange = importSource;
   getElement('source').addEventListener('keydown', insertIndent);
   getElement('diagram-name').addEventListener('input', updateDiagramName);
+  getElement('project-name').addEventListener('input', persistProject);
+  getElement('add-tab').onclick = addTab;
+  getElement('rename-tab').onclick = renameTab;
+  getElement('delete-tab').onclick = deleteTab;
+  getElement('save-project').onclick = saveProject;
+  getElement('load-project').onclick = () => getElement('project-file').click();
+  getElement('project-file').onchange = importProject;
 }
 
 restoreSource();
-updateDiagramName();
 bindEvents();
-refresh();
+restoreProject();

@@ -20,7 +20,9 @@
         </span>
       </div>
       <div>
-        <button id="load">불러오기</button>
+        <button id="load-project">프로젝트 열기</button>
+        <button id="save-project">프로젝트 저장</button>
+        <button id="load">소스 불러오기</button>
         <button id="save">소스 저장</button>
         <button id="svg">SVG 내보내기</button>
         <button id="png" class="primary">PNG 내보내기</button>
@@ -29,6 +31,8 @@
     <!-- 소스 입력과 미리보기는 별도 영역으로 유지합니다. -->
     <main>
       <aside>
+        <label class="diagram-name-label" for="project-name">프로젝트 이름</label>
+        <input id="project-name" type="text" maxlength="120" placeholder="새 프로젝트" />
         <label class="diagram-name-label" for="diagram-name">다이어그램 이름</label>
         <input id="diagram-name" type="text" maxlength="120" placeholder="예: 입력 신호 처리" />
         <div class="panel-title">
@@ -47,6 +51,8 @@ component "컴포넌트 이름" #dbeafe {
 adc -> led : 전송 항목
 adc -> led #009900 : 녹색 메시지
 led --> adc : 점선 응답
+adc <- led : led에서 adc로 전송
+adc <-- led : led에서 adc로 점선 전송
 space 30
 
 // 주석 · 색상은 #RGB 또는 #RRGGBB
@@ -73,16 +79,18 @@ space 30
             </label>
             <label>
               확대
-              <select id="zoom">
-                <option value="0.75">75%</option>
-                <option value="1" selected>100%</option>
-                <option value="1.25">125%</option>
-                <option value="1.5">150%</option>
-              </select>
+              <input id="zoom" type="number" min="50" max="200" step="1" value="100" />
+              %
             </label>
           </div>
         </div>
         <div id="canvas"><div id="diagram"></div></div>
+        <nav class="tab-bar" aria-label="프로젝트 다이어그램">
+          <div id="diagram-tabs" role="tablist" aria-label="다이어그램 탭"></div>
+          <button id="add-tab">+ 탭 추가</button>
+          <button id="rename-tab">이름 변경</button>
+          <button id="delete-tab">탭 삭제</button>
+        </nav>
         <footer>
           상단 컴포넌트 / 유닛 · 자동 정렬 생명선 · 메시지별 입출력 박스
           <span>로컬 자동 저장</span>
@@ -90,10 +98,12 @@ space 30
       </section>
     </main>
     <input id="file" type="file" accept=".txt,.uml,.puml" hidden />
+    <input id="project-file" type="file" accept=".json" hidden />
     <!-- 의존 순서: 엔진 → 기본 예제 → 화면 초기화 -->
     <script src="../../features/sequence/diagram.js"></script>
     <script src="../../features/sequence/example.js"></script>
     <script src="../../features/sequence/file-save.js"></script>
+    <script src="../../features/sequence/project.js"></script>
     <script src="../../features/sequence/editor.js"></script>
   </body>
 </html>

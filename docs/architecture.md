@@ -7,6 +7,7 @@
 - `web/features/<type>/diagram.js`: DOM과 독립적인 파싱·검증·배치·SVG 생성
 - `web/features/<type>/editor.js`: 입력, 파일 저장, 가져오기, 내보내기
 - `web/features/sequence/example.js`: 편집기와 테스트가 공유하는 기본 예제
+- `web/features/sequence/project.js`: 버전이 있는 프로젝트 JSON과 탭 모델의 생성·검증
 - `web/assets/styles/`: 공통 및 편집기별 스타일
 - `tests/`: 렌더링 회귀 테스트와 페이지 링크 검사
 - `scripts/`: 개발 서버와 배포 파일 생성
@@ -18,6 +19,8 @@
 현재는 개발 범위 안내 페이지입니다. 향후 `component → unit → port` 구조와 `signal(sourcePort, targetPort, kind)` 연결 모델을 도입합니다. 시간축 기반 시퀀스와 분리된 렌더러가 필요합니다. 주요 구현 대상은 계층 배치, 직각 경로, 분기점, 라벨 충돌 방지, 신호 종류별 색상과 범례입니다.
 
 ## 저장
+
+`sequence-project-v1` 키는 프로젝트 이름, 선택된 탭 ID와 모든 탭의 소스·이름·간격·배율을 보관합니다. 기존 단일 작업은 첫 탭으로 이관됩니다. 내보내는 프로젝트 JSON은 `format: diagram-studio`, `version: 1`로 식별합니다. 불러온 파일은 전체를 검증한 다음 프로젝트를 교체하며, 작성 중 문법 오류가 있는 소스도 프로젝트에 저장할 수 있습니다.
 
 기존 시퀀스 문법과 sequence-source 저장 키를 유지합니다. localStorage는 브라우저·접속 출처에 종속되며 file://에서의 동작은 브라우저별로 다릅니다. 경로 변경 전에 기존 페이지에서 소스를 파일로 저장하고 새 편집기에서 불러오세요.
 

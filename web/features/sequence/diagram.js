@@ -10,7 +10,7 @@
     '^unit\\s+([A-Za-z_][\\w]*)\\s+"((?:\\\\.|[^"\\\\])*)"(?:\\s+(' + COLOR_PATTERN + '))?$',
   );
   const MESSAGE_PATTERN = new RegExp(
-    '^([A-Za-z_][\\w]*)\\s*(-->|->)\\s*([A-Za-z_][\\w]*)(?:\\s+(' +
+    '^([A-Za-z_][\\w]*)\\s*(-->|<--|->|<-)\\s*([A-Za-z_][\\w]*)(?:\\s+(' +
       COLOR_PATTERN +
       '))?\\s*:\\s*(.+)$',
   );
@@ -85,10 +85,12 @@
         units.push(unit);
         currentComponent.units.push(unit);
       } else if ((match = line.match(MESSAGE_PATTERN))) {
+        // 왼쪽 화살표도 실제 송신자와 수신자로 정규화해 동일한 렌더러를 사용합니다.
+        const pointsLeft = match[2].startsWith('<');
         events.push({
-          from: match[1],
-          to: match[3],
-          dashed: match[2] === '-->',
+          from: pointsLeft ? match[3] : match[1],
+          to: pointsLeft ? match[1] : match[3],
+          dashed: match[2] === '-->' || match[2] === '<--',
           color: match[4] || '#3030ff',
           label: decodeLabel(match[5]),
           line: lineIndex + 1,
@@ -158,7 +160,7 @@
     }
   }
 
-  function expandMessageColumns(model, unitsById) {
+  function expandMessageColumns(model, unitsById, columnGap) {
     const { components, units, events } = model;
 
     for (const event of events) {
@@ -180,6 +182,13 @@
         }
       }
     }
+
+    // 글자와 박스에 필요한 최소 배치를 먼저 확정한 뒤 모든 인접 열에
+    // 동일한 추가 여백을 적용합니다. 메시지 폭 보정이 사용자 간격을 상쇄하지 않습니다.
+    const extraColumnGap = columnGap - 24;
+    units.forEach((unit, index) => {
+      unit.x += index * extraColumnGap;
+    });
 
     // 열 이동 후 컴포넌트 테두리도 하위 유닛의 새 좌표에 맞춥니다.
     for (const component of components) {
@@ -325,8 +334,9 @@
     );
     const headerBottom = UNIT_TOP + unitHeight + 12;
 
-    layoutHeaders(components, columnGap);
-    expandMessageColumns(model, unitsById);
+    // 최소 간격을 기준으로 자동 배치한 다음 사용자 여백을 별도로 적용합니다.
+    layoutHeaders(components, 24);
+    expandMessageColumns(model, unitsById, columnGap);
     const height = layoutEvents(events, headerBottom, rowGap);
     const width = calculateCanvasWidth(components, events, unitsById);
 

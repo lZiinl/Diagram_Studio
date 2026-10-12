@@ -3,11 +3,14 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 // 실제 스크립트 순서로 초기화하여 저장 창 호출과 파일 내용의 연결을 검사합니다.
-function createEditor(picker) {
+function createEditor(picker, initialStorage = []) {
   const elements = new Map();
-  const storage = new Map();
+  const storage = new Map(initialStorage);
   const alerts = [];
   const document = {
+    createElement() {
+      return { setAttribute() {}, focus() {} };
+    },
     getElementById(id) {
       if (!elements.has(id)) {
         elements.set(id, {
@@ -15,6 +18,13 @@ function createEditor(picker) {
           files: [],
           textContent: '',
           addEventListener() {},
+          children: [],
+          replaceChildren() {
+            this.children = [];
+          },
+          appendChild(child) {
+            this.children.push(child);
+          },
           firstElementChild: { style: {}, getAttribute: () => '100' },
         });
       }
@@ -24,6 +34,7 @@ function createEditor(picker) {
   const context = vm.createContext({
     document,
     Blob,
+    confirm: () => true,
     showSaveFilePicker: picker,
     localStorage: {
       getItem: (key) => storage.get(key),
@@ -31,7 +42,7 @@ function createEditor(picker) {
     },
     alert: (message) => alerts.push(message),
   });
-  for (const filename of ['diagram', 'example', 'file-save', 'editor']) {
+  for (const filename of ['diagram', 'example', 'file-save', 'project', 'editor']) {
     vm.runInContext(fs.readFileSync(`web/features/sequence/${filename}.js`, 'utf8'), context);
   }
   return { context, elements, storage, alerts };
@@ -51,6 +62,20 @@ async function run() {
   });
 
   assert.match(editor.elements.get('source').value, /}\n\n\ncomponent/);
+  // 임의 배율, 양 끝 범위, 범위 밖 입력과 입력 중 빈 값을 검사합니다.
+  for (const [requested, expected] of [
+    ['50', 50],
+    ['137', 137],
+    ['200', 200],
+    ['500', 200],
+    ['20', 50],
+    ['', 50],
+  ]) {
+    editor.elements.get('zoom').value = requested;
+    vm.runInContext('normalizeZoomInput()', editor.context);
+    assert.equal(editor.elements.get('zoom').value, String(expected));
+    assert.equal(editor.elements.get('diagram').firstElementChild.style.width, `${expected}px`);
+  }
   editor.elements.get('diagram-name').value = '입력 처리';
   vm.runInContext('updateDiagramName()', editor.context);
   assert.equal(editor.storage.get('sequence-name'), '입력 처리');
@@ -83,6 +108,52 @@ async function run() {
   fallback.context.prompt = () => null;
   await vm.runInContext('saveSource()', fallback.context);
   assert.equal(fallback.alerts.length, 0);
+
+  // 오류가 있는 작성 중 소스와 화면 설정도 탭 전환 후 유지되어야 합니다.
+  editor.elements.get('source').value = '아직 작성 중';
+  editor.elements.get('gap').value = '87';
+  vm.runInContext('refresh(); addTab()', editor.context);
+  assert.equal(editor.elements.get('source').value, '');
+  editor.elements.get('source').value = '두 번째 탭';
+  vm.runInContext('refresh(); switchTab(project.tabs[0].id)', editor.context);
+  assert.equal(editor.elements.get('source').value, '아직 작성 중');
+  assert.equal(editor.elements.get('gap').value, '87');
+  await vm.runInContext('saveProject()', editor.context);
+  const savedProject = JSON.parse(await savedBlobs.at(-1).text());
+  assert.equal(savedProject.tabs.length, 2);
+  assert.equal(savedProject.tabs[1].source, '두 번째 탭');
+  editor.elements.get('project-file').files = [{ text: async () => JSON.stringify(savedProject) }];
+  await vm.runInContext('importProject()', editor.context);
+  assert.equal(editor.elements.get('source').value, '아직 작성 중');
+  vm.runInContext('deleteTab()', editor.context);
+  assert.equal(editor.elements.get('source').value, '두 번째 탭');
+  assert.equal(editor.elements.get('delete-tab').disabled, true);
+  assert.equal(editor.alerts.length, 0);
+
+  const reloaded = createEditor(undefined, [...editor.storage]);
+  assert.equal(reloaded.elements.get('source').value, '두 번째 탭');
+  assert.equal(reloaded.elements.get('delete-tab').disabled, true);
+
+  // 손상된 파일은 현재 프로젝트를 교체하지 않아야 합니다.
+  editor.elements.get('project-file').files = [{ text: async () => '{"format":"other"}' }];
+  await vm.runInContext('importProject()', editor.context);
+  assert.equal(editor.elements.get('source').value, '두 번째 탭');
+  assert.equal(editor.alerts.length, 1);
+
+  const projectApi = require('../web/features/sequence/project.js');
+  assert.throws(() => projectApi.parse(JSON.stringify({ ...savedProject, version: 999 })));
+  assert.throws(() =>
+    projectApi.parse(
+      JSON.stringify({ ...savedProject, tabs: [savedProject.tabs[0], savedProject.tabs[0]] }),
+    ),
+  );
+
+  const migrated = createEditor(undefined, [
+    ['sequence-source', '기존 작업'],
+    ['sequence-name', '이전 이름'],
+  ]);
+  assert.equal(migrated.elements.get('source').value, '기존 작업');
+  assert.equal(migrated.elements.get('diagram-name').value, '이전 이름');
 
   console.log(
     'PASS: example spacing, name persistence, source round-trip, save formats and cancellation',
