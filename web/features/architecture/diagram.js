@@ -1,7 +1,14 @@
 // 아키텍처 예시 엔진: 문법 해석과 배치를 DOM에서 독립적으로 실행합니다.
 (function (root) {
   'use strict';
-  const colors = { normal: '#475569', fault: '#ef4444', hw: '#16a34a' };
+  const defaultSignals = {
+    normal: { name: '일반 신호', color: '#475569', style: 'solid' },
+    fault: { name: '고장 신호', color: '#ef4444', style: 'solid' },
+    hw: { name: 'HW–SW 인터페이스', color: '#16a34a', style: 'solid' },
+  };
+  const linePatterns = { solid: '', dashed: '8 5', dotted: '2 5', dashdot: '8 4 2 4' };
+  const lineStyle = (signal) =>
+    'stroke="' + signal.color + '" stroke-dasharray="' + linePatterns[signal.style] + '"';
   const escape = (text) =>
     String(text).replace(
       /[&<>"']/g,
@@ -11,6 +18,10 @@
 
   /** 소스를 컴포넌트·포트·연결 모델로 해석하며 오류에 원본 행 번호를 붙입니다. */
   function parse(source) {
+    const signals = new Map(
+      Object.entries(defaultSignals).map(([id, signal]) => [id, { ...signal }]),
+    );
+    const declaredSignals = new Set();
     const components = [];
     const units = new Map();
     const ports = new Map();
@@ -26,7 +37,19 @@
         return;
       }
       let match;
-      if ((match = line.match(/^component (\w+) "([^"]+)" (#[\da-fA-F]{6}) column (\d+) \{$/))) {
+      if (
+        (match = line.match(
+          /^signal ([A-Za-z_]\w*) "([^"\\]+)" (#[\da-fA-F]{6}) (solid|dashed|dotted|dashdot)$/,
+        ))
+      ) {
+        if (component || declaredSignals.has(match[1])) {
+          fail('신호 종류는 컴포넌트 밖에서 한 번만 정의하세요.');
+        }
+        declaredSignals.add(match[1]);
+        signals.set(match[1], { name: match[2], color: match[3], style: match[4] });
+      } else if (
+        (match = line.match(/^component (\w+) "([^"]+)" (#[\da-fA-F]{6}) column (\d+) \{$/))
+      ) {
         if (component || components.some((item) => item.id === match[1])) {
           fail('컴포넌트 중첩 또는 ID 중복');
         }
@@ -61,7 +84,7 @@
         } else {
           fail('여는 괄호가 없습니다.');
         }
-      } else if ((match = line.match(/^(\w+\.\w+) -> (\w+\.\w+)(?: (normal|fault|hw))?$/))) {
+      } else if ((match = line.match(/^(\w+\.\w+) -> (\w+\.\w+)(?: ([A-Za-z_]\w*))?$/))) {
         if (component) {
           fail('연결은 컴포넌트 밖에 선언하세요.');
         }
@@ -77,6 +100,9 @@
       throw new Error('컴포넌트마다 유닛이 필요합니다.');
     }
     for (const link of links) {
+      if (!signals.has(link.kind)) {
+        throw new Error(`${link.line}행: 정의되지 않은 신호 종류 ${link.kind}`);
+      }
       const from = ports.get(link.from);
       const to = ports.get(link.to);
       if (!from || !to || from.direction !== 'out' || to.direction !== 'in') {
@@ -86,7 +112,7 @@
         throw new Error(`${link.line}행: 예시 버전은 오른쪽 열로 향하는 연결만 지원합니다.`);
       }
     }
-    return { components, ports, links };
+    return { components, ports, links, signals };
   }
 
   const lines = (text) => text.split('\\n');
@@ -187,6 +213,10 @@
   /** 검증한 모델을 SVG로 변환합니다. 같은 출력·종류의 신호는 분기선을 공유합니다. */
   function render(model, options = {}) {
     const size = layout(model, options);
+    const legendEntries = [...model.signals.values()];
+    const legendWidths = legendEntries.map((signal) => Math.max(150, textWidth(signal.name) + 64));
+    const legendWidth = 100 + legendWidths.reduce((sum, width) => sum + width, 0);
+    size.width = Math.max(size.width, legendWidth + 60);
     const text = (value, x, y, anchor = 'middle', fontSize = 12) =>
       lines(value)
         .map(
@@ -222,11 +252,12 @@
       const component = from.unit.component;
       const lane = component.routeKeys.indexOf(`${links[0].from}:${links[0].kind}`);
       const trunk = component.routeStart + lane * 24;
-      const color = colors[links[0].kind];
+      const signal = model.signals.get(links[0].kind);
+      const color = signal.color;
       const ys = [from.y, ...targets.map((port) => port.y)];
-      svg += `<path d="M ${from.x} ${from.y} H ${trunk} M ${trunk} ${Math.min(...ys)} V ${Math.max(...ys)}" stroke="${color}" stroke-width="1.5" fill="none"/>`;
+      svg += `<path d="M ${from.x} ${from.y} H ${trunk} M ${trunk} ${Math.min(...ys)} V ${Math.max(...ys)}" ${lineStyle(signal)} stroke-width="1.5" fill="none"/>`;
       for (const target of targets) {
-        svg += `<path d="M ${trunk} ${target.y} H ${target.x}" stroke="${color}" stroke-width="1.5" fill="none"/>`;
+        svg += `<path d="M ${trunk} ${target.y} H ${target.x}" ${lineStyle(signal)} stroke-width="1.5" fill="none"/>`;
         if (targets.length > 1) {
           svg += `<circle cx="${trunk}" cy="${target.y}" r="3" fill="${color}"/>`;
         }
@@ -247,17 +278,15 @@
         '</g>';
     }
     svg +=
-      '<g aria-label="신호 종류 범례"><rect x="30" y="20" width="650" height="56" rx="4" fill="white" stroke="#94a3b8"/>';
+      '<g aria-label="신호 종류 범례"><rect x="30" y="20" width="' +
+      legendWidth +
+      '" height="56" rx="4" fill="white" stroke="#94a3b8"/>';
     svg += text('신호 종류', 46, 53, 'start');
-    Object.entries(colors).forEach(([kind, color], index) => {
-      const x = 120 + index * 180;
-      svg += `<path d="M ${x} 49 h 30" stroke="${color}" stroke-width="2"/>`;
-      svg += text(
-        { normal: '일반 신호', fault: '고장 신호', hw: 'HW–SW 인터페이스' }[kind],
-        x + 38,
-        53,
-        'start',
-      );
+    let legendX = 130;
+    legendEntries.forEach((signal, index) => {
+      svg += '<path d="M ' + legendX + ' 49 h 30" ' + lineStyle(signal) + ' stroke-width="2"/>';
+      svg += text(signal.name, legendX + 38, 53, 'start');
+      legendX += legendWidths[index];
     });
     return svg + '</g></svg>';
   }

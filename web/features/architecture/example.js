@@ -1,5 +1,11 @@
 // 첨부 설계도의 입력 → 감시 → 제어 → 출력 구조를 단순화한 예시입니다.
-const architectureExample = `// column으로 열 지정 · 같은 열은 선언 순서대로 배치
+const architectureExample = `// 신호 종류: ID "범례 이름" 색상 선 종류
+// solid 실선 · dashed 파선 · dotted 점선 · dashdot 일점쇄선
+signal normal "일반 신호" #475569 solid
+signal fault "고장 신호" #ef4444 dashed
+signal hw "HW–SW 인터페이스" #16a34a dotted
+
+// column으로 열 지정 · 같은 열은 선언 순서대로 배치
 component input "SWC401 : Input Output Conversion" #d9e8fb column 1 {
   unit adc "SWU401.1\\nDrv_Adc" #d6ead0 {
     in tail "Vcc_Tail"

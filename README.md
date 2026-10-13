@@ -147,6 +147,22 @@ space 30
 
 ## 팀 공유
 
+### 아키텍처 신호 종류 설정
+
+소스의 컴포넌트 밖에서 신호 종류를 정의합니다. 기존 `normal`, `fault`, `hw`의 이름·색상·선 종류를 바꾸거나 새 ID를 추가할 수 있습니다.
+
+```text
+signal normal "일반 신호" #475569 solid
+signal fault "오류 신호" #ff0000 dashed
+signal diagnostic "진단 통신" #8050cc dashdot
+
+adc.voltage -> func.voltage diagnostic
+```
+
+선 종류는 `solid`(실선), `dashed`(파선), `dotted`(점선), `dashdot`(일점쇄선)입니다.
+연결의 종류를 생략하면 `normal`을 사용합니다. 정의하지 않은 기본 3종은 기존 설정을 유지합니다.
+범례와 연결선, SVG·PNG 내보내기에 동일하게 반영되며 소스에 포함되어 탭 복제와 프로젝트 저장·불러오기에도 유지됩니다.
+
 빌드한 dist를 사내 웹 서버 등에 배포하면 모두 같은 URL로 사용할 수 있습니다. 현재는 각자 브라우저에서 편집하고 소스 파일로 공유합니다. 중앙 저장과 실시간 공동 편집은 아직 없습니다.
 
 [팀 배포 안내](docs/deployment.md) · [아키텍처 및 확장 규칙](docs/architecture.md)

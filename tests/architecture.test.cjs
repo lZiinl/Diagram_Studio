@@ -6,6 +6,25 @@ const example = vm.runInNewContext(
   fs.readFileSync('web/features/architecture/example.js', 'utf8') + '\narchitectureExample',
 );
 const model = diagram.parse(example);
+const customSource =
+  'signal fault "사용자 오류" #123456 dashed\nsignal diagnostic "진단 <통신>" #8050cc dashdot\n' +
+  example
+    .replace(/^signal fault .*\n/m, '')
+    .replace('adc.bin -> bin.value', 'adc.bin -> bin.value diagnostic');
+const custom = diagram.parse(customSource);
+const customSvg = diagram.render(custom);
+assert.equal(custom.signals.get('fault').name, '사용자 오류');
+assert.match(customSvg, /stroke="#123456" stroke-dasharray="8 5"/);
+assert.match(customSvg, /stroke="#8050cc" stroke-dasharray="8 4 2 4"/);
+assert.match(customSvg, /진단 &lt;통신&gt;/);
+assert.match(
+  diagram.render(
+    diagram.parse(example.replace(/^signal hw .*$/m, 'signal hw "하드웨어" #112233 dotted')),
+  ),
+  /stroke="#112233" stroke-dasharray="2 5"/,
+);
+assert.throws(() => diagram.parse(example + '\nadc.bin -> bin.value missing'), /정의되지 않은/);
+assert.throws(() => diagram.parse('signal fault "오류" #ff0000 invalid\n' + example), /1행/);
 assert.equal(model.components.length, 7);
 assert.equal(model.links.length, 15);
 const svg = diagram.render(model);
