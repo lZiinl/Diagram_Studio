@@ -377,6 +377,7 @@ function refresh() {
     });
 
     getElement('diagram').innerHTML = svgText;
+    editorConfig.afterRender?.(model);
     applyPreviewZoom();
 
     getElement('status').className = '';
@@ -385,6 +386,7 @@ function refresh() {
     saveDraft();
   } catch (error) {
     const line = error.message.match(/^(\d+)행:/);
+    editorConfig.afterRender?.(null);
     EditorLayout.updateLineNumbers(line ? Number(line[1]) : 0);
     isValid = false;
     getElement('status').className = 'error';
@@ -582,4 +584,5 @@ EditorWindows.initialize({ getTitle: getDiagramName, editorTitle: editorConfig.t
 restoreSource();
 EditorLayout.initialize(editorConfig.type);
 bindEvents();
+editorConfig.initialize?.({ refresh, getTabId: () => project?.activeTabId });
 restoreProject();

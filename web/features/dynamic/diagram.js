@@ -375,7 +375,17 @@
     }
     for (const event of events) {
       if (event.from) {
-        svg += renderMessage(event, unitsById);
+        // 가는 화살표도 쉽게 선택하도록 같은 경로에 투명한 클릭 영역을 둡니다.
+        const message = renderMessage(event, unitsById);
+        const hitPaths = [...message.matchAll(/<path d="([^"]+)"/g)]
+          .map(
+            (match) =>
+              '<path d="' +
+              match[1] +
+              '" fill="none" stroke="transparent" stroke-width="12" pointer-events="stroke"/>',
+          )
+          .join('');
+        svg += '<g data-source-lines="' + event.line + '">' + message + hitPaths + '</g>';
       }
     }
 

@@ -41,6 +41,27 @@ async function run() {
   const legacy = createEditor(picker, [['architecture-example-source', original]], 'architecture');
   assert.equal(legacy.elements.get('source').value, original);
   assert.equal(editor.alerts.length, 0);
+  const sourceBeforeHighlight = editor.elements.get('source').value;
+  vm.runInContext(
+    "EditorLayout.highlightSource({ target: { closest: () => ({ dataset: { sourceLines: '2,4' } }) } })",
+    editor.context,
+  );
+  assert.equal(editor.elements.get('line-numbers').children[1].className, 'source-selected');
+  assert.equal(editor.elements.get('line-numbers').children[3].className, 'source-selected');
+  assert.match(editor.elements.get('source').style.backgroundImage, /linear-gradient/);
+  assert.equal(editor.elements.get('source').value, sourceBeforeHighlight);
+  const diagramArea = editor.elements.get('diagram');
+  diagramArea.listeners.click({
+    target: { closest: () => ({ dataset: { routeKey: 'adc.voltage:normal' } }) },
+  });
+  diagramArea.listeners.keydown({ key: 'ArrowRight', shiftKey: true, preventDefault() {} });
+  diagramArea.listeners.keydown({ key: 'ArrowUp', shiftKey: true, preventDefault() {} });
+  assert.match(editor.elements.get('source').value, /route adc.voltage normal 10 -10/);
+  assert.match(editor.storage.get('architecture-project-v1'), /route adc.voltage normal 10 -10/);
+  diagramArea.listeners.keydown({ key: 'ArrowDown', shiftKey: false, preventDefault() {} });
+  assert.match(editor.elements.get('source').value, /route adc.voltage normal 10 -8/);
+  editor.elements.get('routes-reset').onclick();
+  assert.ok(!editor.elements.get('source').value.includes('route adc.voltage'));
   console.log(
     'PASS: architecture shared UI, migration, independent storage, tabs, project and exports',
   );

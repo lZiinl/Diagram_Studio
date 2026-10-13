@@ -242,6 +242,14 @@ select {
   justify-content: flex-end;
 }
 
+#diagram [data-route-key] {
+  cursor: pointer;
+}
+#diagram .route-selected .route-hit {
+  stroke: #6366f1;
+  stroke-opacity: 0.22;
+}
+
 .panel-title {
   flex-wrap: wrap;
   gap: 8px;
@@ -348,4 +356,17 @@ select {
 button:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+#diagram [data-source-lines] {
+  cursor: pointer;
+}
+#line-numbers .source-selected {
+  background: #43528a;
+  color: white;
+}
+#routes-reset {
+  margin-right: auto;
+  padding: 4px 10px;
+  border-radius: 4px;
 }

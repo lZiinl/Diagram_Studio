@@ -22,6 +22,8 @@ function createEditor(picker, initialStorage = [], type = 'dynamic') {
         elements.set(id, {
           value: '',
           files: [],
+          querySelectorAll: () => [],
+          focus() {},
           textContent: '',
           listeners: {},
           addEventListener(name, listener) {
@@ -66,7 +68,7 @@ function createEditor(picker, initialStorage = [], type = 'dynamic') {
     alert: (message) => alerts.push(message),
   });
   if (type === 'architecture') {
-    for (const filename of ['diagram', 'example', 'editor']) {
+    for (const filename of ['diagram', 'example', 'editor', 'route-editor']) {
       vm.runInContext(fs.readFileSync(`web/features/architecture/${filename}.js`, 'utf8'), context);
     }
   }

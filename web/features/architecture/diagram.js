@@ -26,6 +26,7 @@
     const units = new Map();
     const ports = new Map();
     const links = [];
+    const routes = new Map();
     let component = null;
     let unit = null;
     source.split(/\r?\n/).forEach((raw, index) => {
@@ -37,7 +38,18 @@
         return;
       }
       let match;
-      if (
+      if ((match = line.match(/^route (\w+\.\w+) ([A-Za-z_]\w*) (-?\d+) (-?\d+)$/))) {
+        const key = match[1] + ':' + match[2];
+        if (
+          component ||
+          routes.has(key) ||
+          Math.abs(+match[3]) > 500 ||
+          Math.abs(+match[4]) > 500
+        ) {
+          fail('route는 컴포넌트 밖에서 신호별 한 번만, 이동량 -500~500으로 지정하세요.');
+        }
+        routes.set(key, { x: +match[3], y: +match[4] });
+      } else if (
         (match = line.match(
           /^signal ([A-Za-z_]\w*) "([^"\\]+)" (#[\da-fA-F]{6}) (solid|dashed|dotted|dashdot)$/,
         ))
@@ -73,7 +85,7 @@
         if (ports.has(id)) {
           fail('포트 ID 중복');
         }
-        const port = { id, direction: match[1], name: match[3] || '', unit };
+        const port = { id, direction: match[1], name: match[3] || '', unit, line: index + 1 };
         unit.ports.push(port);
         ports.set(id, port);
       } else if (line === '}') {
@@ -112,7 +124,7 @@
         throw new Error(`${link.line}행: 예시 버전은 오른쪽 열로 향하는 연결만 지원합니다.`);
       }
     }
-    return { components, ports, links, signals };
+    return { components, ports, links, signals, routes };
   }
 
   const lines = (text) => text.split('\\n');
@@ -224,7 +236,13 @@
             `<text x="${x}" y="${y + index * 20}" text-anchor="${anchor}" font-size="${fontSize}">${escape(line)}</text>`,
         )
         .join('');
-    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}" font-family="Arial, sans-serif"><rect width="100%" height="100%" fill="white"/>`;
+    // 수동 경로가 원래 캔버스 밖으로 나가도 내보내기에서 잘리지 않도록 여백을 확장합니다.
+    const offsets = [...model.routes.values()];
+    const left = Math.min(0, ...offsets.map((offset) => offset.x));
+    const top = Math.min(0, ...offsets.map((offset) => offset.y));
+    const extraRight = Math.max(0, ...offsets.map((offset) => offset.x));
+    const extraBottom = Math.max(0, ...offsets.map((offset) => offset.y));
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size.width - left + extraRight}" height="${size.height - top + extraBottom}" viewBox="${left} ${top} ${size.width - left + extraRight} ${size.height - top + extraBottom}" font-family="Arial, sans-serif"><rect x="${left}" y="${top}" width="100%" height="100%" fill="white"/>`;
     // 배경을 먼저 그리고 포트와 라벨은 연결선 위에 표시합니다.
     for (const component of model.components) {
       svg += `<rect x="${component.x}" y="${component.y}" width="${component.width}" height="${component.height}" fill="${component.color}"/>`;
@@ -251,14 +269,39 @@
       const targets = links.map((link) => model.ports.get(link.to));
       const component = from.unit.component;
       const lane = component.routeKeys.indexOf(`${links[0].from}:${links[0].kind}`);
-      const trunk = component.routeStart + lane * 24;
+      const key = links[0].from + ':' + links[0].kind;
+      const offset = model.routes.get(key) || { x: 0, y: 0 };
+      const trunk = component.routeStart + lane * 24 + offset.x;
+      const sourceY = from.y + offset.y;
+      const targetYs = targets.map((target) => target.y + offset.y);
       const signal = model.signals.get(links[0].kind);
       const color = signal.color;
-      const ys = [from.y, ...targets.map((port) => port.y)];
-      svg += `<path d="M ${from.x} ${from.y} H ${trunk} M ${trunk} ${Math.min(...ys)} V ${Math.max(...ys)}" ${lineStyle(signal)} stroke-width="1.5" fill="none"/>`;
-      for (const target of targets) {
-        svg += `<path d="M ${trunk} ${target.y} H ${target.x}" ${lineStyle(signal)} stroke-width="1.5" fill="none"/>`;
+      const ys = [sourceY, ...targetYs];
+      // 포트 끝점은 고정하고 같은 신호의 중간 경로를 함께 이동합니다.
+      let path = 'M ' + from.x + ' ' + from.y;
+      if (offset.y) {
+        path += ' H ' + (from.x + 16) + ' V ' + sourceY;
       }
+      path += ' H ' + trunk;
+      path += ' M ' + trunk + ' ' + Math.min(...ys) + ' V ' + Math.max(...ys);
+      targets.forEach((target, index) => {
+        path += ' M ' + trunk + ' ' + targetYs[index];
+        if (offset.y) {
+          path += ' H ' + (target.x - 16) + ' V ' + target.y;
+        }
+        path += ' H ' + target.x;
+      });
+      svg +=
+        '<g data-route-key="' +
+        escape(key) +
+        '" data-source-lines="' +
+        links.map((link) => link.line).join(',') +
+        '">';
+      svg += '<path d="' + path + '" ' + lineStyle(signal) + ' stroke-width="1.5" fill="none"/>';
+      svg +=
+        '<path class="route-hit" d="' +
+        path +
+        '" stroke="transparent" stroke-width="12" fill="none" pointer-events="stroke"/>';
       // 연결 개수가 아니라 실제 뻗는 방향 수를 셉니다. L자 굴곡은 2방향이므로 점을 찍지 않습니다.
       const top = Math.min(...ys);
       const bottom = Math.max(...ys);
@@ -266,12 +309,13 @@
         const directions =
           Number(y > top) +
           Number(y < bottom) +
-          Number(y === from.y) +
-          Number(targets.some((target) => target.y === y));
+          Number(y === sourceY) +
+          Number(targetYs.includes(y));
         if (directions >= 3) {
           svg += `<circle cx="${trunk}" cy="${y}" r="3" fill="${color}"/>`;
         }
       }
+      svg += '</g>';
     }
     const connectedPorts = new Set(model.links.flatMap((link) => [link.from, link.to]));
     for (const port of model.ports.values()) {
@@ -279,7 +323,7 @@
       // 문법 추가 없이 기존 in/out 선언을 그대로 사용하고 기본 신호 스타일을 따릅니다.
       if (!connectedPorts.has(port.id)) {
         const endX = port.x + (port.direction === 'in' ? -24 : 24);
-        svg += `<path data-external-port="${escape(port.id)}" d="M ${port.x} ${port.y} H ${endX}" ${lineStyle(model.signals.get('normal'))} stroke-width="1.5" fill="none"/>`;
+        svg += `<path data-source-lines="${port.line}" data-external-port="${escape(port.id)}" d="M ${port.x} ${port.y} H ${endX}" ${lineStyle(model.signals.get('normal'))} stroke-width="1.5" fill="none"/>`;
       }
       // 라벨 아래의 가는 배경 테두리는 지나가는 다른 신호선과 글자를 구분합니다.
       svg +=

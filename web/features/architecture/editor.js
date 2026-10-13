@@ -4,6 +4,8 @@ globalThis.DiagramEditorConfig = {
   type: 'architecture',
   title: 'SW 아키텍처 다이어그램',
   engine: ArchitectureDiagram,
+  initialize: (options) => ArchitectureRouteEditor.initialize(options),
+  afterRender: (model) => ArchitectureRouteEditor.afterRender(model),
   summarize: (model) =>
     model.components.length +
     ' 컴포넌트 · ' +

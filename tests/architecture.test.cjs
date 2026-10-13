@@ -102,3 +102,13 @@ const single = diagram.render(diagram.parse(branchSource + 'a.p -> b.p'));
 assert.equal((single.match(/<circle /g) || []).length, 0);
 const branching = diagram.render(diagram.parse(branchSource + 'a.p -> b.p\na.p -> b.q'));
 assert.equal((branching.match(/<circle /g) || []).length, 1);
+const movedModel = diagram.parse(branchSource + 'a.p -> b.p\na.p -> b.q\nroute a.p normal 20 -30');
+const movedSvg = diagram.render(movedModel);
+const startPort = movedModel.ports.get('a.p');
+const endPort = movedModel.ports.get('b.p');
+assert.ok(
+  movedSvg.includes(`M ${startPort.x} ${startPort.y} H ${startPort.x + 16} V ${startPort.y - 30}`),
+);
+assert.ok(movedSvg.includes(`H ${endPort.x - 16} V ${endPort.y} H ${endPort.x}`));
+assert.equal((movedSvg.match(/<circle /g) || []).length, 1);
+assert.throws(() => diagram.parse(branchSource + 'a.p -> b.p\nroute a.p normal 501 0'), /-500~500/);
