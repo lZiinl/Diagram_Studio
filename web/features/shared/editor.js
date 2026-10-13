@@ -302,6 +302,7 @@ function getDiagramName() {
 }
 
 function updateDiagramName() {
+  EditorWindows.sync();
   document.title = `${getDiagramName()} · ${editorConfig.title} · Diagram Studio`;
   try {
     localStorage.setItem(NAME_STORAGE_KEY, getDiagramName());
@@ -391,6 +392,8 @@ function refresh() {
       ? error.message + (svgText ? ' (마지막 정상 미리보기 유지)' : '')
       : '새 탭에 다이어그램 소스를 입력하세요.';
   }
+
+  EditorWindows.sync();
 
   // 잘못된 소스와 이전 그림이 혼동되지 않도록 오류 중에는 이미지 저장을 막습니다.
   getElement('svg').disabled = !isValid;
@@ -575,6 +578,7 @@ function bindEvents() {
   getElement('project-file').onchange = importProject;
 }
 
+EditorWindows.initialize({ getTitle: getDiagramName, editorTitle: editorConfig.title, refresh });
 restoreSource();
 EditorLayout.initialize(editorConfig.type);
 bindEvents();

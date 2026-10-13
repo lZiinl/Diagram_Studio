@@ -235,6 +235,34 @@ select {
   background: #152034;
 }
 
+.source-window-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.panel-title {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.guide-window-link {
+  align-self: flex-start;
+  padding: 4px 0;
+  border: 0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: #213047;
+  background: transparent;
+}
+
+.source-window-actions button {
+  padding: 6px 9px;
+  font-size: 12px;
+}
+
 #line-numbers {
   width: 46px;
   padding: 18px 8px 18px 12px;

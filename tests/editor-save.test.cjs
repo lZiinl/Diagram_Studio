@@ -76,6 +76,7 @@ function createEditor(picker, initialStorage = [], type = 'dynamic') {
     'file-save',
     'project',
     'editor-layout',
+    'editor-windows',
     'editor',
   ]) {
     if (type === 'architecture' && ['diagram', 'example'].includes(filename)) {

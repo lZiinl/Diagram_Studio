@@ -258,13 +258,29 @@
       svg += `<path d="M ${from.x} ${from.y} H ${trunk} M ${trunk} ${Math.min(...ys)} V ${Math.max(...ys)}" ${lineStyle(signal)} stroke-width="1.5" fill="none"/>`;
       for (const target of targets) {
         svg += `<path d="M ${trunk} ${target.y} H ${target.x}" ${lineStyle(signal)} stroke-width="1.5" fill="none"/>`;
-        if (targets.length > 1) {
-          svg += `<circle cx="${trunk}" cy="${target.y}" r="3" fill="${color}"/>`;
+      }
+      // 연결 개수가 아니라 실제 뻗는 방향 수를 셉니다. L자 굴곡은 2방향이므로 점을 찍지 않습니다.
+      const top = Math.min(...ys);
+      const bottom = Math.max(...ys);
+      for (const y of new Set(ys)) {
+        const directions =
+          Number(y > top) +
+          Number(y < bottom) +
+          Number(y === from.y) +
+          Number(targets.some((target) => target.y === y));
+        if (directions >= 3) {
+          svg += `<circle cx="${trunk}" cy="${y}" r="3" fill="${color}"/>`;
         }
       }
     }
+    const connectedPorts = new Set(model.links.flatMap((link) => [link.from, link.to]));
     for (const port of model.ports.values()) {
-      svg += `<circle cx="${port.x}" cy="${port.y}" r="3" fill="white" stroke="#475569"/>`;
+      // 연결 상대가 없는 포트도 외부 입출력임을 알 수 있도록 24px 길이의 선을 표시합니다.
+      // 문법 추가 없이 기존 in/out 선언을 그대로 사용하고 기본 신호 스타일을 따릅니다.
+      if (!connectedPorts.has(port.id)) {
+        const endX = port.x + (port.direction === 'in' ? -24 : 24);
+        svg += `<path data-external-port="${escape(port.id)}" d="M ${port.x} ${port.y} H ${endX}" ${lineStyle(model.signals.get('normal'))} stroke-width="1.5" fill="none"/>`;
+      }
       // 라벨 아래의 가는 배경 테두리는 지나가는 다른 신호선과 글자를 구분합니다.
       svg +=
         '<g paint-order="stroke" stroke="white" stroke-width="4" stroke-linejoin="round">' +
@@ -278,7 +294,9 @@
         '</g>';
     }
     svg +=
-      '<g aria-label="신호 종류 범례"><rect x="30" y="20" width="' +
+      '<g aria-label="신호 종류 범례" transform="translate(' +
+      (size.width - legendWidth - 60) +
+      ' 0)"><rect x="30" y="20" width="' +
       legendWidth +
       '" height="56" rx="4" fill="white" stroke="#94a3b8"/>';
     svg += text('신호 종류', 46, 53, 'start');

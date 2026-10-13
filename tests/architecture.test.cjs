@@ -28,6 +28,15 @@ assert.throws(() => diagram.parse('signal fault "오류" #ff0000 invalid\n' + ex
 assert.equal(model.components.length, 7);
 assert.equal(model.links.length, 15);
 const svg = diagram.render(model);
+assert.match(svg, /data-external-port="adc.tail"/);
+assert.match(svg, /data-external-port="uart.tx"/);
+assert.ok(!svg.includes('data-external-port="adc.voltage"'));
+for (const port of model.ports.values()) {
+  if (!model.links.some((link) => link.from === port.id || link.to === port.id)) {
+    const endX = port.x + (port.direction === 'in' ? -24 : 24);
+    assert.ok(svg.includes(`data-external-port="${port.id}" d="M ${port.x} ${port.y} H ${endX}"`));
+  }
+}
 const ports = (direction) =>
   Array.from({ length: 40 }, (_, index) => `${direction} p${index}`).join('\n');
 const links = Array.from({ length: 40 }, (_, index) => `a.p${index} -> b.p${index}`).join('\n');
@@ -85,3 +94,11 @@ assert.ok(
 assert.ok(
   Number(wide.match(/height="([0-9.]+)"/)[1]) > Number(narrow.match(/height="([0-9.]+)"/)[1]),
 );
+
+// 1개 연결의 굴곡에는 점이 없고 2개 출력 분기에는 실제 T자 지점 하나만 표시합니다.
+const branchSource =
+  'component a "A" #ffffff column 1 {\nunit a "A" #ffffff {\nout p\n}\n}\ncomponent b "B" #ffffff column 2 {\nunit b "B" #ffffff {\nin p\nin q\n}\n}\n';
+const single = diagram.render(diagram.parse(branchSource + 'a.p -> b.p'));
+assert.equal((single.match(/<circle /g) || []).length, 0);
+const branching = diagram.render(diagram.parse(branchSource + 'a.p -> b.p\na.p -> b.q'));
+assert.equal((branching.match(/<circle /g) || []).length, 1);
