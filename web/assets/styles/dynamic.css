@@ -167,22 +167,13 @@ pre {
 .toolbar {
   padding: 18px 24px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 18px;
   font-size: 11px;
   letter-spacing: 0.6px;
   background: #f9fafc;
   border-bottom: 1px solid #e2e7ee;
 }
-.dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  background: #2fa77b;
-  border-radius: 50%;
-  margin-right: 7px;
-}
-
 #fit-view {
   margin-left: 14px;
   padding: 4px 10px;
@@ -219,16 +210,6 @@ select {
 }
 #diagram svg {
   display: block;
-}
-footer {
-  padding: 14px 24px;
-  color: #7a879a;
-  font-size: 11px;
-  background: #fff;
-  border-top: 1px solid #dde3ec;
-}
-footer span {
-  float: right;
 }
 @media (max-width: 900px) {
   main {

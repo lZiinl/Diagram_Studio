@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 // 실제 스크립트 순서로 초기화하여 저장 창 호출과 파일 내용의 연결을 검사합니다.
-function createEditor(picker, initialStorage = []) {
+function createEditor(picker, initialStorage = [], type = 'dynamic') {
   const elements = new Map();
   const storage = new Map(initialStorage);
   const alerts = [];
@@ -65,6 +65,11 @@ function createEditor(picker, initialStorage = []) {
     },
     alert: (message) => alerts.push(message),
   });
+  if (type === 'architecture') {
+    for (const filename of ['diagram', 'example', 'editor']) {
+      vm.runInContext(fs.readFileSync(`web/features/architecture/${filename}.js`, 'utf8'), context);
+    }
+  }
   for (const filename of [
     'diagram',
     'example',
@@ -73,7 +78,16 @@ function createEditor(picker, initialStorage = []) {
     'editor-layout',
     'editor',
   ]) {
-    vm.runInContext(fs.readFileSync(`web/features/dynamic/${filename}.js`, 'utf8'), context);
+    if (type === 'architecture' && ['diagram', 'example'].includes(filename)) {
+      continue;
+    }
+    vm.runInContext(
+      fs.readFileSync(
+        `web/features/${['diagram', 'example'].includes(filename) ? 'dynamic' : 'shared'}/${filename}.js`,
+        'utf8',
+      ),
+      context,
+    );
   }
   return { context, elements, storage, alerts };
 }
@@ -227,7 +241,7 @@ async function run() {
   assert.equal(editor.elements.get('source').value, '두 번째 탭');
   assert.equal(editor.alerts.length, 1);
 
-  const projectApi = require('../web/features/dynamic/project.js');
+  const projectApi = require('../web/features/shared/project.js');
   assert.throws(() => projectApi.parse(JSON.stringify({ ...savedProject, version: 999 })));
   assert.throws(() =>
     projectApi.parse(
@@ -266,7 +280,10 @@ async function run() {
   );
 }
 
-run().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+module.exports = { createEditor };
+if (require.main === module) {
+  run().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

@@ -3,7 +3,7 @@
   'use strict';
 
   const DEFAULT_WIDTH = 312; // 기존 390px의 80%
-  const WIDTH_KEY = 'dynamic-sidebar-width';
+  let WIDTH_KEY = 'dynamic-sidebar-width';
   let errorLine = 0;
   let measureElement = null;
 
@@ -32,7 +32,8 @@
   }
 
   /** 화면 줄바꿈은 소스를 변경하지 않으며 행 번호는 원래 소스 행에 대응합니다. */
-  function initialize() {
+  function initialize(type = 'dynamic') {
+    WIDTH_KEY = type + '-sidebar-width';
     const source = document.getElementById('source');
     measureElement = document.createElement('div');
     measureElement.className = 'source-line-measure';
@@ -49,8 +50,10 @@
     let width = DEFAULT_WIDTH;
     try {
       width =
-        Number(localStorage.getItem(WIDTH_KEY) ?? localStorage.getItem('sequence-sidebar-width')) ||
-        DEFAULT_WIDTH;
+        Number(
+          localStorage.getItem(WIDTH_KEY) ??
+            (type === 'dynamic' ? localStorage.getItem('sequence-sidebar-width') : null),
+        ) || DEFAULT_WIDTH;
     } catch {
       // 브라우저 저장이 차단되어도 드래그 조절은 가능합니다.
     }

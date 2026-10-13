@@ -9,7 +9,14 @@
 
   function create(name, source, tabName = '다이어그램 1') {
     const tab = createTab(tabName, source);
-    return { format: 'diagram-studio', version: 1, name, activeTabId: tab.id, tabs: [tab] };
+    return {
+      format: 'diagram-studio',
+      version: 1,
+      diagramType: root.DiagramEditorConfig?.type || 'dynamic',
+      name,
+      activeTabId: tab.id,
+      tabs: [tab],
+    };
   }
 
   /** 외부 파일을 검증하고 허용된 필드만 복사합니다. 기존 프로젝트는 변경하지 않습니다. */
@@ -28,6 +35,10 @@
     }
 
     const ids = new Set();
+    const diagramType = value.diagramType || 'dynamic';
+    if (diagramType !== (root.DiagramEditorConfig?.type || 'dynamic')) {
+      throw new Error('다른 종류의 편집기에서 만든 프로젝트입니다. 해당 편집기에서 열어 주세요.');
+    }
     const tabs = value.tabs.map((tab) => {
       if (
         !tab ||
@@ -64,6 +75,7 @@
     return {
       format: value.format,
       version: 1,
+      diagramType,
       name: value.name,
       activeTabId: value.activeTabId,
       tabs,

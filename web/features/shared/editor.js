@@ -1,7 +1,19 @@
 // 이 파일은 화면 이벤트와 브라우저 저장을 담당합니다.
 // 문법 해석과 그림 생성은 diagram.js, 초기 소스는 example.js에서 제공합니다.
-const STORAGE_KEY = 'dynamic-source';
-const NAME_STORAGE_KEY = 'dynamic-name';
+const editorConfig = globalThis.DiagramEditorConfig || {
+  type: 'dynamic',
+  title: '다이나믹 다이어그램',
+  engine: Diagram,
+  summarize: (model) =>
+    model.components.length +
+    ' 컴포넌트 · ' +
+    model.units.length +
+    ' 유닛 · ' +
+    model.events.filter((event) => event.from).length +
+    ' 메시지',
+};
+const STORAGE_KEY = editorConfig.type + '-source';
+const NAME_STORAGE_KEY = editorConfig.type + '-name';
 const DEFAULT_NAME = '새 다이어그램';
 const MAX_PNG_DIMENSION = 8192;
 const DEFAULT_PNG_SCALE = 2;
@@ -11,10 +23,17 @@ let svgText = '';
 let isValid = false;
 let zoomPercent = 100;
 let currentDiagramName = DEFAULT_NAME;
-const PROJECT_STORAGE_KEY = 'dynamic-project-v1';
+const PROJECT_STORAGE_KEY = editorConfig.type + '-project-v1';
 // 이전 사이트의 자동 저장은 읽기만 하며 새 키가 있으면 새 데이터를 우선합니다.
 function readSavedValue(key) {
-  return localStorage.getItem(key) ?? localStorage.getItem(key.replace(/^dynamic-/, 'sequence-'));
+  const saved = localStorage.getItem(key);
+  if (saved !== null && saved !== undefined) {
+    return saved;
+  }
+  if (editorConfig.type === 'dynamic') {
+    return localStorage.getItem(key.replace(/^dynamic-/, 'sequence-'));
+  }
+  return key === STORAGE_KEY ? localStorage.getItem('architecture-example-source') : null;
 }
 let project = null;
 let projectAutoSave = true;
@@ -283,7 +302,7 @@ function getDiagramName() {
 }
 
 function updateDiagramName() {
-  document.title = `${getDiagramName()} · 다이나믹 다이어그램 · Diagram Studio`;
+  document.title = `${getDiagramName()} · ${editorConfig.title} · Diagram Studio`;
   try {
     localStorage.setItem(NAME_STORAGE_KEY, getDiagramName());
   } catch {
@@ -350,8 +369,8 @@ function fitPreviewToScreen() {
 function refresh() {
   EditorLayout.updateLineNumbers();
   try {
-    const model = Diagram.parse(getElement('source').value);
-    svgText = Diagram.render(model, {
+    const model = editorConfig.engine.parse(getElement('source').value);
+    svgText = editorConfig.engine.render(model, {
       gap: getElement('gap').value,
       row: getElement('row').value,
     });
@@ -359,10 +378,8 @@ function refresh() {
     getElement('diagram').innerHTML = svgText;
     applyPreviewZoom();
 
-    const messageCount = model.events.filter((event) => event.from).length;
     getElement('status').className = '';
-    getElement('status').textContent =
-      `${model.components.length} 컴포넌트 · ${model.units.length} 유닛 · ${messageCount} 메시지`;
+    getElement('status').textContent = editorConfig.summarize(model);
     isValid = true;
     saveDraft();
   } catch (error) {
@@ -559,6 +576,6 @@ function bindEvents() {
 }
 
 restoreSource();
-EditorLayout.initialize();
+EditorLayout.initialize(editorConfig.type);
 bindEvents();
 restoreProject();

@@ -78,10 +78,6 @@ space 30
       <section class="workspace">
         <div class="toolbar">
           <div>
-            <span class="dot"></span>
-            LIVE PREVIEW
-          </div>
-          <div>
             <label>
               열 간격
               <input id="gap" type="number" min="24" max="240" value="42" />
@@ -106,10 +102,6 @@ space 30
           <button id="rename-tab">이름 변경</button>
           <button id="delete-tab">탭 삭제</button>
         </nav>
-        <footer>
-          상단 컴포넌트 / 유닛 · 자동 정렬 생명선 · 메시지별 입출력 박스
-          <span>로컬 자동 저장</span>
-        </footer>
       </section>
     </main>
     <input id="file" type="file" accept=".txt,.uml,.puml" hidden />
@@ -117,9 +109,9 @@ space 30
     <!-- 의존 순서: 엔진 → 기본 예제 → 화면 초기화 -->
     <script src="../../features/dynamic/diagram.js"></script>
     <script src="../../features/dynamic/example.js"></script>
-    <script src="../../features/dynamic/file-save.js"></script>
-    <script src="../../features/dynamic/project.js"></script>
-    <script src="../../features/dynamic/editor-layout.js"></script>
-    <script src="../../features/dynamic/editor.js"></script>
+    <script src="../../features/shared/file-save.js"></script>
+    <script src="../../features/shared/project.js"></script>
+    <script src="../../features/shared/editor-layout.js"></script>
+    <script src="../../features/shared/editor.js"></script>
   </body>
 </html>

@@ -9,7 +9,7 @@
 - `web/features/<type>/diagram.js`: DOM과 독립적인 파싱·검증·배치·SVG 생성
 - `web/features/<type>/editor.js`: 입력, 파일 저장, 가져오기, 내보내기
 - `web/features/dynamic/example.js`: 편집기와 테스트가 공유하는 기본 예제
-- `web/features/dynamic/project.js`: 버전이 있는 프로젝트 JSON과 탭 모델의 생성·검증
+- `web/features/shared/project.js`: 버전이 있는 프로젝트 JSON과 탭 모델의 생성·검증
 - `web/assets/styles/`: 공통 및 편집기별 스타일
 - `tests/`: 렌더링 회귀 테스트와 페이지 링크 검사
 - `scripts/`: 개발 서버와 배포 파일 생성
@@ -18,7 +18,7 @@
 
 ## SW 아키텍처 편집기
 
-현재는 개발 범위 안내 페이지입니다. 향후 `component → unit → port` 구조와 `signal(sourcePort, targetPort, kind)` 연결 모델을 도입합니다. 시간축 기반 다이나믹 다이어그램과 분리된 렌더러가 필요합니다. 주요 구현 대상은 계층 배치, 직각 경로, 분기점, 라벨 충돌 방지, 신호 종류별 색상과 범례입니다.
+현재 architecture-overview.html은 동작하는 예시 편집기입니다. `features/architecture/diagram.js`가 component → unit → port 구조의 해석·배치·SVG 렌더링을 담당하며 example.js와 editor.js가 예제·화면 이벤트를 담당합니다. 열 지정, 직각 연결, 같은 출력의 분기, 신호 종류별 색상과 범례를 지원합니다. 오른쪽 열로 향하는 연결만 허용하며 정교한 장애물·라벨 충돌 회피는 아직 구현하지 않았습니다. 자동 저장 키는 `architecture-project-v1`로 다이나믹 프로젝트와 분리합니다. 기존 `architecture-example-source`를 첫 탭으로 이관합니다. 두 편집기는 `features/shared`의 editor, editor-layout, project, file-save와 같은 CSS를 공유하며 아키텍처 editor.js는 엔진 설정만 전달합니다.
 
 ## 저장
 
