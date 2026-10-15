@@ -370,3 +370,18 @@ button:disabled {
   padding: 4px 10px;
   border-radius: 4px;
 }
+
+#diagram [data-component-box] {
+  cursor: pointer;
+}
+#diagram .component-selected > rect {
+  stroke: #6366f1;
+  stroke-width: 2;
+}
+#diagram [data-unit-box] {
+  cursor: pointer;
+}
+#diagram .unit-selected > rect {
+  stroke: #6366f1;
+  stroke-width: 2;
+}

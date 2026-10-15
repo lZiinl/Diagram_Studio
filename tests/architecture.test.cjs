@@ -236,10 +236,101 @@ for (const count of [3, 12]) {
     const turns = [...path.matchAll(/H (-?[\d.]+) V (-?[\d.]+)/g)];
     const entry = Number(turns.at(-1)[1]);
     assert.ok(entry < destination.x);
-    entryPositions.push(entry);
+    let currentY = 0;
+    let verticalStart = 0;
+    for (const command of path.matchAll(/([MHV])\s+(-?[\d.]+)(?:\s+(-?[\d.]+))?/g)) {
+      if (command[1] === 'M') {
+        currentY = Number(command[3]);
+      }
+      if (command[1] === 'V') {
+        verticalStart = currentY;
+        currentY = Number(command[2]);
+      }
+    }
+    entryPositions.push({
+      x: entry,
+      low: Math.min(verticalStart, currentY),
+      high: Math.max(verticalStart, currentY),
+    });
   }
-  entryPositions.sort((a, b) => a - b);
-  entryPositions.slice(1).forEach((x, index) => assert.ok(x - entryPositions[index] >= 16));
+  for (let first = 0; first < entryPositions.length; first += 1) {
+    for (let second = first + 1; second < entryPositions.length; second += 1) {
+      const a = entryPositions[first];
+      const b = entryPositions[second];
+      if (Math.max(a.low, b.low) <= Math.min(a.high, b.high)) {
+        assert.ok(Math.abs(a.x - b.x) >= 16, '겹치는 세로 구간은 별도 레인 필요');
+      }
+    }
+  }
   assert.equal(destination.width, normalModel.components[2].width);
   assert.equal(destination.height, normalModel.components[2].height);
 }
+
+// 컴포넌트 위치 변경 시 포트가 함께 이동하고 같은 열의 다른 박스와 겹치지 않습니다.
+const placedModel = diagram.parse(example + '\nplace monitor column 2 y 600');
+const placedSvg = diagram.render(placedModel);
+const placed = placedModel.components.find((item) => item.id === 'monitor');
+assert.ok(placed.y >= 600);
+assert.match(placedSvg, /data-component-title="monitor"/);
+for (const unit of placed.units) {
+  assert.ok(unit.y > placed.y);
+  for (const port of unit.ports) {
+    assert.ok(port.y >= unit.y && port.y <= unit.y + unit.height);
+  }
+}
+const sameColumn = placedModel.components
+  .filter((item) => item.column === 2)
+  .sort((a, b) => a.y - b.y);
+sameColumn
+  .slice(1)
+  .forEach((item, index) => assert.ok(item.y > sameColumn[index].y + sameColumn[index].height));
+assert.throws(() => diagram.parse(example + '\nplace monitor column 4 y 200'), /오른쪽 열/);
+assert.throws(
+  () => diagram.parse(example + '\nplace missing column 2 y 200'),
+  /정의되지 않은 컴포넌트/,
+);
+assert.throws(() => diagram.parse(example + '\nplace monitor column 2 y 10001'), /0~10000/);
+const movedColumn = diagram.parse(externalSource + '\nplace external column 3 y 250');
+diagram.render(movedColumn);
+assert.equal(movedColumn.components[0].column, 3);
+assert.equal(movedColumn.components[0].y, 250);
+
+// 40개 신호가 같은 높이의 포트끼리 연결되면 불필요한 40개 전용 레인을 만들지 않습니다.
+assert.equal(dense.components[0].routeLanes.count, 1);
+assert.equal(dense.components[1].entryLanes.count, 0);
+for (const link of dense.links) {
+  assert.equal(dense.ports.get(link.from).y, dense.ports.get(link.to).y);
+}
+assert.ok(Number(diagram.render(dense).match(/width="([\d.]+)"/)[1]) <= 900);
+
+// 입력 수가 달라도 가까운 송신 포트 높이를 우선해 직선으로 연결합니다.
+const aligned = diagram.parse(`component a "A" #ffffff column 1 {
+  unit a "A" #ffffff {
+    out first
+    out second
+    out third
+  }
+}
+component b "B" #ffffff column 2 {
+  unit b "B" #ffffff {
+    in value
+  }
+}
+a.first -> b.value`);
+const alignedSvg = diagram.render(aligned);
+assert.equal(aligned.ports.get('a.first').y, aligned.ports.get('b.value').y);
+assert.equal(diagram.render(aligned), alignedSvg);
+
+const unitMovedModel = diagram.parse(example + '\nunitplace func x 300 y 60');
+diagram.render(unitMovedModel);
+const movedUnit = unitMovedModel.components
+  .flatMap((item) => item.units)
+  .find((item) => item.id === 'func');
+assert.equal(movedUnit.x - movedUnit.component.x, 300);
+assert.equal(movedUnit.y - movedUnit.component.y, 60);
+assert.ok(movedUnit.x + movedUnit.width < movedUnit.component.x + movedUnit.component.width);
+for (const port of movedUnit.ports) {
+  assert.ok(port.y > movedUnit.y && port.y < movedUnit.y + movedUnit.height);
+}
+assert.throws(() => diagram.parse(example + '\nunitplace missing x 20 y 50'), /정의되지 않은 유닛/);
+assert.throws(() => diagram.parse(example + '\nunitplace func x 10001 y 50'), /0~10000/);

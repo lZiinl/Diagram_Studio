@@ -27,6 +27,8 @@
     const ports = new Map();
     const links = [];
     const routes = new Map();
+    const placements = new Map();
+    const unitPlacements = new Map();
     let component = null;
     let unit = null;
     source.split(/\r?\n/).forEach((raw, index) => {
@@ -38,7 +40,25 @@
         return;
       }
       let match;
-      if ((match = line.match(/^route (\w+\.\w+) ([A-Za-z_]\w*) (-?\d+) (-?\d+)$/))) {
+      if ((match = line.match(/^unitplace (\w+) x (\d+) y (\d+)$/))) {
+        if (
+          component ||
+          unitPlacements.has(match[1]) ||
+          Number(match[2]) > 10000 ||
+          Number(match[3]) > 10000
+        ) {
+          fail('unitplace는 컴포넌트 밖에서 한 번만, 좌표 0~10000으로 지정하세요.');
+        }
+        unitPlacements.set(match[1], {
+          x: Math.max(12, Number(match[2])),
+          y: Math.max(42, Number(match[3])),
+        });
+      } else if ((match = line.match(/^place (\w+) column ([1-8]) y (\d+)$/))) {
+        if (component || placements.has(match[1]) || Number(match[3]) > 10000) {
+          fail('place는 컴포넌트 밖에서 한 번만, y는 0~10000으로 지정하세요.');
+        }
+        placements.set(match[1], { column: Number(match[2]), y: Number(match[3]) });
+      } else if ((match = line.match(/^route (\w+\.\w+) ([A-Za-z_]\w*) (-?\d+) (-?\d+)$/))) {
         const key = match[1] + ':' + match[2];
         if (
           component ||
@@ -120,6 +140,21 @@
     if (!components.length || components.some((item) => !item.units.length)) {
       throw new Error('컴포넌트마다 유닛이 필요합니다.');
     }
+    for (const [id, placement] of unitPlacements) {
+      const item = units.get(id);
+      if (!item) {
+        throw new Error('unitplace: 정의되지 않은 유닛 ' + id);
+      }
+      item.manualPosition = placement;
+    }
+    for (const [id, placement] of placements) {
+      const item = components.find((candidate) => candidate.id === id);
+      if (!item) {
+        throw new Error('place: 정의되지 않은 컴포넌트 ' + id);
+      }
+      item.column = placement.column;
+      item.manualY = Math.max(110, placement.y);
+    }
     for (const port of ports.values()) {
       if (!signals.has(port.kind)) {
         throw new Error(port.line + '행: 정의되지 않은 신호 종류 ' + port.kind);
@@ -138,7 +173,7 @@
         throw new Error(`${link.line}행: 예시 버전은 오른쪽 열로 향하는 연결만 지원합니다.`);
       }
     }
-    return { components, ports, links, signals, routes };
+    return { components, ports, links, signals, routes, placements, unitPlacements };
   }
 
   const lines = (text) => text.split('\\n');
@@ -180,32 +215,70 @@
         }
         component.width = Math.max(
           textWidth(component.name) + 24,
-          ...component.units.map((unit) => unit.width + 44),
+          ...component.units.map((unit) =>
+            unit.manualPosition ? unit.manualPosition.x + unit.width + 22 : unit.width + 44,
+          ),
         );
       }
+      // 지정한 높이를 우선하되, 같은 열의 박스는 순서를 정해 겹치지 않게 밀어냅니다.
+      let automaticY = 110;
+      for (const component of components) {
+        component.desiredY = component.manualY ?? automaticY;
+        automaticY +=
+          42 +
+          component.units.reduce((sum, unit) => sum + unit.height + rowGap / 2, 0) +
+          (rowGap * 2) / 3;
+      }
+      components.sort((a, b) => a.desiredY - b.desiredY);
       const width = Math.max(...components.map((component) => component.width));
       let y = 110;
       let labelRight = x + width;
       for (const component of components) {
+        y = Math.max(y, component.desiredY);
         component.x = x;
         component.y = y;
         component.width = width;
         let unitY = y + 42;
         for (const unit of component.units) {
-          unit.x = x + (width - unit.width) / 2;
-          unit.y = unitY;
+          unit.x = x + (unit.manualPosition?.x ?? (width - unit.width) / 2);
+          unit.y = unit.manualPosition ? y + unit.manualPosition.y : unitY;
+          const inputs = unit.ports.filter((port) => port.direction === 'in');
+          // 원래 높이에서 최대 48px만 늘려 가까운 송신 포트와 높이를 맞춥니다.
+          // 긴 연결 때문에 뒤쪽 박스가 계속 커지지 않도록 확장 상한을 둡니다.
+          const desiredInputs = inputs.map((port) => {
+            const incoming = unit.manualPosition
+              ? null
+              : model.links.find((link) => link.to === port.id);
+            return incoming ? model.ports.get(incoming.from).y : undefined;
+          });
+          const baseHeight = unit.height;
+          const nearBottom = desiredInputs.filter(
+            (value) => Number.isFinite(value) && value <= unit.y + baseHeight + 30,
+          );
+          unit.height = Math.max(
+            baseHeight,
+            Math.min(baseHeight + 48, Math.max(0, ...nearBottom) - unit.y + 18),
+          );
           for (const direction of ['in', 'out']) {
             const ports = unit.ports.filter((port) => port.direction === direction);
+            let previousY = unit.y;
             ports.forEach((port, index) => {
               port.x = direction === 'in' ? unit.x : unit.x + unit.width;
-              // 기존 균등 배치로 유지합니다. 전역 높이 회피 때문에 박스를 늘리지 않습니다.
-              port.y = unit.y + ((index + 1) * unit.height) / (ports.length + 1);
+              const defaultY = unit.y + ((index + 1) * unit.height) / (ports.length + 1);
+              const minimumY = previousY + 18;
+              const maximumY = unit.y + unit.height - (ports.length - index) * 18;
+              const desired = direction === 'in' ? desiredInputs[index] : undefined;
+              port.y =
+                Number.isFinite(desired) && desired >= minimumY && desired <= maximumY
+                  ? desired
+                  : Math.max(minimumY, Math.min(maximumY, defaultY));
+              previousY = port.y;
               if (direction === 'out') {
                 labelRight = Math.max(labelRight, port.x + 8 + textWidth(port.name));
               }
             });
           }
-          unitY += unit.height + rowGap / 2;
+          unitY = Math.max(unitY, unit.y + unit.height + rowGap / 2);
         }
         component.height = unitY - y;
         y = unitY + (rowGap * 2) / 3;
@@ -254,6 +327,91 @@
     return { width: Math.max(720, x), height: height + 30 };
   }
 
+  /** 세로 구간이 겹치지 않는 신호는 같은 레인을 재사용합니다. 단위는 SVG px입니다. */
+  function allocateLanes(requests) {
+    const lanes = [];
+    const positions = new Map();
+    for (const [key, range] of [...requests].sort((a, b) => a[1].low - b[1].low)) {
+      let index = lanes.findIndex((end) => end + 16 < range.low);
+      if (index < 0) {
+        index = lanes.length;
+      }
+      lanes[index] = range.high;
+      positions.set(key, index);
+    }
+    return { positions, count: lanes.length };
+  }
+
+  /** 확정된 포트 높이·우회·수동 이동 범위로 필요한 열 간격만 다시 계산합니다. */
+  function compactColumns(model, detours, options) {
+    const columns = [...new Set(model.components.map((item) => item.column))].sort((a, b) => a - b);
+    const outgoing = new Map(columns.map((column) => [column, new Map()]));
+    const incoming = new Map(columns.map((column) => [column, new Map()]));
+    const extend = (requests, key, values) => {
+      const old = requests.get(key);
+      requests.set(key, {
+        low: Math.min(old?.low ?? Infinity, ...values),
+        high: Math.max(old?.high ?? -Infinity, ...values),
+      });
+    };
+    for (const link of model.links) {
+      const from = model.ports.get(link.from);
+      const to = model.ports.get(link.to);
+      const key = link.from + ':' + link.kind;
+      const offset = model.routes.get(key) || { x: 0, y: 0 };
+      const endY = detours.get(link) ?? to.y + offset.y;
+      extend(outgoing.get(from.unit.component.column), key, [from.y + offset.y, endY]);
+      if (endY !== to.y) {
+        extend(incoming.get(to.unit.component.column), key, [to.y, endY]);
+      }
+    }
+    const entry = new Map(columns.map((column) => [column, allocateLanes(incoming.get(column))]));
+    let x = Math.min(...model.components.map((item) => item.x));
+    let right = x;
+    for (let index = 0; index < columns.length; index += 1) {
+      const column = columns[index];
+      const components = model.components.filter((item) => item.column === column);
+      const output = allocateLanes(outgoing.get(column));
+      let labelRight = x;
+      for (const component of components) {
+        const delta = x - component.x;
+        component.x = x;
+        component.routeLanes = output;
+        component.entryLanes = entry.get(column);
+        labelRight = Math.max(labelRight, x + component.width);
+        for (const unit of component.units) {
+          unit.x += delta;
+          for (const port of unit.ports) {
+            port.x += delta;
+            if (port.direction === 'out') {
+              labelRight = Math.max(labelRight, port.x + 8 + textWidth(port.name));
+            }
+          }
+        }
+      }
+      const routeStart = labelRight + 28;
+      components.forEach((component) => {
+        component.routeStart = routeStart;
+      });
+      const next = columns[index + 1];
+      const inputSpace = Math.max(
+        0,
+        ...[...model.ports.values()]
+          .filter((port) => port.direction === 'in' && port.unit.component.column === next)
+          .map((port) => textWidth(port.name) + 16),
+      );
+      right = labelRight + 30;
+      x =
+        routeStart +
+        Math.max(0, output.count - 1) * 24 +
+        (entry.get(next)?.count || 0) * 24 +
+        inputSpace +
+        Math.max(24, Math.min(240, Number(options.gap) || 42)) +
+        6;
+    }
+    return Math.max(720, right);
+  }
+
   /** 검증한 모델을 SVG로 변환합니다. 같은 출력·종류의 신호는 분기선을 공유합니다. */
   function render(model, options = {}) {
     const size = layout(model, options);
@@ -282,6 +440,7 @@
         size.height = Math.max(size.height, y + 30);
       }
     }
+    size.width = compactColumns(model, detours, options);
     const legendEntries = [...model.signals.values()];
     const legendWidths = legendEntries.map((signal) => Math.max(150, textWidth(signal.name) + 64));
     const legendWidth = 100 + legendWidths.reduce((sum, width) => sum + width, 0);
@@ -302,16 +461,32 @@
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size.width - left + extraRight}" height="${size.height - top + extraBottom}" viewBox="${left} ${top} ${size.width - left + extraRight} ${size.height - top + extraBottom}" font-family="Arial, sans-serif"><rect x="${left}" y="${top}" width="100%" height="100%" fill="white"/>`;
     // 배경을 먼저 그리고 포트와 라벨은 연결선 위에 표시합니다.
     for (const component of model.components) {
+      svg += `<g data-component-box="${escape(component.id)}">`;
       svg += `<rect x="${component.x}" y="${component.y}" width="${component.width}" height="${component.height}" fill="${component.color}"/>`;
-      svg += text(component.name, component.x + component.width / 2, component.y + 22);
+      svg +=
+        '<g data-component-title="' +
+        escape(component.id) +
+        '"><title>박스 클릭 후 방향키로 이동</title>';
+      svg +=
+        '<rect x="' +
+        component.x +
+        '" y="' +
+        component.y +
+        '" width="' +
+        component.width +
+        '" height="36" fill="transparent"/>';
+      svg += text(component.name, component.x + component.width / 2, component.y + 22) + '</g>';
       for (const unit of component.units) {
+        svg += `<g data-unit-box="${escape(unit.id)}"><title>유닛 클릭 후 방향키로 이동</title>`;
         svg += `<rect x="${unit.x}" y="${unit.y}" width="${unit.width}" height="${unit.height}" fill="${unit.color}"/>`;
         svg += text(
           unit.name,
           unit.x + unit.width / 2,
           unit.y + unit.height / 2 - (lines(unit.name).length - 1) * 10 + 4,
         );
+        svg += '</g>';
       }
+      svg += '</g>';
     }
     const groups = new Map();
     for (const link of model.links) {
@@ -325,7 +500,7 @@
       const from = model.ports.get(links[0].from);
       const targets = links.map((link) => model.ports.get(link.to));
       const component = from.unit.component;
-      const lane = component.routeKeys.indexOf(`${links[0].from}:${links[0].kind}`);
+      const lane = component.routeLanes.positions.get(`${links[0].from}:${links[0].kind}`);
       const key = links[0].from + ':' + links[0].kind;
       const offset = model.routes.get(key) || { x: 0, y: 0 };
       // 수동 좌표를 박스 사이의 안전한 배선 구간으로 제한합니다.
@@ -333,11 +508,14 @@
       const nextColumnX = Math.min(
         ...model.components
           .filter((item) => item.column > component.column)
-          .map((item) => item.x - (item.entryKeys?.length || 0) * 24 - 12),
+          .map((item) => item.x - (item.entryLanes?.count || 0) * 24 - 12),
       );
       const trunk = Math.max(
         component.x + component.width + 12,
-        Math.min(nextColumnX - 12, component.routeStart + lane * 24 + offset.x),
+        Math.min(
+          nextColumnX - 12,
+          component.routeStart + lane * 24 + Math.max(-4, Math.min(4, offset.x)),
+        ),
       );
       const hasDetour = links.some((link) => detours.has(link));
       const sourceExitX = hasDetour ? component.x + component.width + 12 : from.x + 16;
@@ -359,7 +537,7 @@
         path += ' M ' + trunk + ' ' + targetYs[index];
         if (detours.has(links[index]) || offset.y) {
           const destination = target.unit.component;
-          const entryLane = destination.entryKeys.indexOf(key);
+          const entryLane = destination.entryLanes.positions.get(key) ?? 0;
           // 24px 간격의 레인 안에서 ±4px까지 조정하여 다른 신호와 최소 16px를 유지합니다.
           const entryX = destination.x - 24 - entryLane * 24 + Math.max(-4, Math.min(4, offset.x));
           path += ' H ' + entryX + ' V ' + target.y;

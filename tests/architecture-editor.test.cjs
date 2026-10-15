@@ -62,6 +62,34 @@ async function run() {
   assert.match(editor.elements.get('source').value, /route adc.voltage normal 10 -8/);
   editor.elements.get('routes-reset').onclick();
   assert.ok(!editor.elements.get('source').value.includes('route adc.voltage'));
+  const boxTarget = {
+    closest: (selector) =>
+      selector === '[data-component-box]' ? { dataset: { componentBox: 'monitor' } } : null,
+  };
+  diagramArea.listeners.click({ target: boxTarget });
+  diagramArea.listeners.keydown({ key: 'ArrowDown', shiftKey: false, preventDefault() {} });
+  assert.match(editor.elements.get('source').value, /place monitor column 2 y 112/);
+  diagramArea.listeners.keydown({ key: 'ArrowDown', shiftKey: true, preventDefault() {} });
+  assert.match(editor.elements.get('source').value, /place monitor column 2 y 122/);
+  assert.match(editor.storage.get('architecture-project-v1'), /place monitor column 2 y 122/);
+  diagramArea.listeners.keydown({ key: 'ArrowRight', shiftKey: false, preventDefault() {} });
+  assert.match(editor.elements.get('source').value, /place monitor column 2 y 122/);
+  assert.equal(diagramArea.listeners.pointerdown, undefined);
+  editor.elements.get('routes-reset').onclick();
+  assert.ok(!editor.elements.get('source').value.includes('place monitor'));
+  const unitTarget = {
+    closest: (selector) =>
+      selector === '[data-unit-box]' ? { dataset: { unitBox: 'func' } } : null,
+  };
+  diagramArea.listeners.click({ target: unitTarget });
+  diagramArea.listeners.keydown({ key: 'ArrowRight', shiftKey: false, preventDefault() {} });
+  assert.match(editor.elements.get('source').value, /unitplace func x \d+ y 42/);
+  diagramArea.listeners.keydown({ key: 'ArrowDown', shiftKey: true, preventDefault() {} });
+  assert.match(editor.elements.get('source').value, /unitplace func x \d+ y 52/);
+  assert.match(editor.storage.get('architecture-project-v1'), /unitplace func/);
+  assert.ok(!editor.elements.get('source').value.includes('place monitor'));
+  editor.elements.get('routes-reset').onclick();
+  assert.ok(!editor.elements.get('source').value.includes('unitplace'));
   console.log(
     'PASS: architecture shared UI, migration, independent storage, tabs, project and exports',
   );
