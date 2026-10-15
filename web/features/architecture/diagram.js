@@ -77,7 +77,9 @@
         unit = { id: match[1], name: match[2], color: match[3], ports: [], component };
         component.units.push(unit);
         units.set(unit.id, unit);
-      } else if ((match = line.match(/^(in|out) (\w+)(?: "([^"]*)")?$/))) {
+      } else if (
+        (match = line.match(/^(in|out) (\w+)(?: "([^"]*)")?(?: signal ([A-Za-z_]\w*))?$/))
+      ) {
         if (!unit) {
           fail('포트는 unit 안에 선언하세요.');
         }
@@ -85,7 +87,14 @@
         if (ports.has(id)) {
           fail('포트 ID 중복');
         }
-        const port = { id, direction: match[1], name: match[3] || '', unit, line: index + 1 };
+        const port = {
+          id,
+          direction: match[1],
+          name: match[3] || '',
+          unit,
+          kind: match[4] || 'normal',
+          line: index + 1,
+        };
         unit.ports.push(port);
         ports.set(id, port);
       } else if (line === '}') {
@@ -110,6 +119,11 @@
     }
     if (!components.length || components.some((item) => !item.units.length)) {
       throw new Error('컴포넌트마다 유닛이 필요합니다.');
+    }
+    for (const port of ports.values()) {
+      if (!signals.has(port.kind)) {
+        throw new Error(port.line + '행: 정의되지 않은 신호 종류 ' + port.kind);
+      }
     }
     for (const link of links) {
       if (!signals.has(link.kind)) {
@@ -210,13 +224,31 @@
         component.routeKeys = outputKeys;
       }
       const nextColumn = columns[columns.indexOf(column) + 1];
+      // 수신 열별로 서로 다른 신호의 진입 레인을 예약합니다.
+      // 같은 출력·종류만 레인을 공유하며, 중간 열을 건너오는 신호도 포함합니다.
+      const incomingKeys = [
+        ...new Set(
+          model.links
+            .filter((link) => model.ports.get(link.to).unit.component.column === nextColumn)
+            .map((link) => link.from + ':' + link.kind),
+        ),
+      ];
+      for (const destination of model.components.filter((item) => item.column === nextColumn)) {
+        destination.entryKeys = incomingKeys;
+      }
       const inputSpace = Math.max(
         0,
         ...[...model.ports.values()]
           .filter((port) => port.direction === 'in' && port.unit.component.column === nextColumn)
           .map((port) => textWidth(port.name) + 16),
       );
-      x = routeStart + Math.max(0, outputKeys.length - 1) * 24 + inputSpace + columnGap + 6;
+      x =
+        routeStart +
+        Math.max(0, outputKeys.length - 1) * 24 +
+        incomingKeys.length * 24 +
+        inputSpace +
+        columnGap +
+        6;
       height = Math.max(height, y);
     }
     return { width: Math.max(720, x), height: height + 30 };
@@ -225,6 +257,31 @@
   /** 검증한 모델을 SVG로 변환합니다. 같은 출력·종류의 신호는 분기선을 공유합니다. */
   function render(model, options = {}) {
     const size = layout(model, options);
+    // 여러 열을 건너뛰는 선은 중간 컴포넌트 전체를 장애물로 취급합니다.
+    // 양쪽 열 사이의 빈 배선 영역에서 내려갔다 올라오므로 유닛 크기는 늘리지 않습니다.
+    const detours = new Map();
+    let detourIndex = 0;
+    for (const link of model.links) {
+      const from = model.ports.get(link.from);
+      const target = model.ports.get(link.to);
+      const between = model.components.filter(
+        (item) =>
+          item.column > from.unit.component.column && item.column < target.unit.component.column,
+      );
+      const offset = model.routes.get(link.from + ':' + link.kind) || { x: 0, y: 0 };
+      const blocked = between.some(
+        (item) =>
+          (target.y >= item.y - 12 && target.y <= item.y + item.height + 12) ||
+          (target.y + offset.y >= item.y - 12 && target.y + offset.y <= item.y + item.height + 12),
+      );
+      if (blocked) {
+        const minimumY = Math.max(...between.map((item) => item.y + item.height)) + 24;
+        const y = Math.max(minimumY, minimumY + detourIndex * 18 + offset.y);
+        detours.set(link, y);
+        detourIndex += 1;
+        size.height = Math.max(size.height, y + 30);
+      }
+    }
     const legendEntries = [...model.signals.values()];
     const legendWidths = legendEntries.map((signal) => Math.max(150, textWidth(signal.name) + 64));
     const legendWidth = 100 + legendWidths.reduce((sum, width) => sum + width, 0);
@@ -271,23 +328,41 @@
       const lane = component.routeKeys.indexOf(`${links[0].from}:${links[0].kind}`);
       const key = links[0].from + ':' + links[0].kind;
       const offset = model.routes.get(key) || { x: 0, y: 0 };
-      const trunk = component.routeStart + lane * 24 + offset.x;
+      // 수동 좌표를 박스 사이의 안전한 배선 구간으로 제한합니다.
+      // 우회 경로를 해제하지 않고 같은 기준점에 이동량을 적용합니다.
+      const nextColumnX = Math.min(
+        ...model.components
+          .filter((item) => item.column > component.column)
+          .map((item) => item.x - (item.entryKeys?.length || 0) * 24 - 12),
+      );
+      const trunk = Math.max(
+        component.x + component.width + 12,
+        Math.min(nextColumnX - 12, component.routeStart + lane * 24 + offset.x),
+      );
+      const hasDetour = links.some((link) => detours.has(link));
+      const sourceExitX = hasDetour ? component.x + component.width + 12 : from.x + 16;
       const sourceY = from.y + offset.y;
-      const targetYs = targets.map((target) => target.y + offset.y);
+      const targetYs = targets.map(
+        (target, index) => detours.get(links[index]) ?? target.y + offset.y,
+      );
       const signal = model.signals.get(links[0].kind);
       const color = signal.color;
       const ys = [sourceY, ...targetYs];
       // 포트 끝점은 고정하고 같은 신호의 중간 경로를 함께 이동합니다.
       let path = 'M ' + from.x + ' ' + from.y;
       if (offset.y) {
-        path += ' H ' + (from.x + 16) + ' V ' + sourceY;
+        path += ' H ' + sourceExitX + ' V ' + sourceY;
       }
       path += ' H ' + trunk;
       path += ' M ' + trunk + ' ' + Math.min(...ys) + ' V ' + Math.max(...ys);
       targets.forEach((target, index) => {
         path += ' M ' + trunk + ' ' + targetYs[index];
-        if (offset.y) {
-          path += ' H ' + (target.x - 16) + ' V ' + target.y;
+        if (detours.has(links[index]) || offset.y) {
+          const destination = target.unit.component;
+          const entryLane = destination.entryKeys.indexOf(key);
+          // 24px 간격의 레인 안에서 ±4px까지 조정하여 다른 신호와 최소 16px를 유지합니다.
+          const entryX = destination.x - 24 - entryLane * 24 + Math.max(-4, Math.min(4, offset.x));
+          path += ' H ' + entryX + ' V ' + target.y;
         }
         path += ' H ' + target.x;
       });
@@ -320,10 +395,10 @@
     const connectedPorts = new Set(model.links.flatMap((link) => [link.from, link.to]));
     for (const port of model.ports.values()) {
       // 연결 상대가 없는 포트도 외부 입출력임을 알 수 있도록 24px 길이의 선을 표시합니다.
-      // 문법 추가 없이 기존 in/out 선언을 그대로 사용하고 기본 신호 스타일을 따릅니다.
+      // 포트의 signal 지정이 없으면 normal 스타일을 사용합니다.
       if (!connectedPorts.has(port.id)) {
         const endX = port.x + (port.direction === 'in' ? -24 : 24);
-        svg += `<path data-source-lines="${port.line}" data-external-port="${escape(port.id)}" d="M ${port.x} ${port.y} H ${endX}" ${lineStyle(model.signals.get('normal'))} stroke-width="1.5" fill="none"/>`;
+        svg += `<path data-source-lines="${port.line}" data-external-port="${escape(port.id)}" d="M ${port.x} ${port.y} H ${endX}" ${lineStyle(model.signals.get(port.kind))} stroke-width="1.5" fill="none"/>`;
       }
       // 라벨 아래의 가는 배경 테두리는 지나가는 다른 신호선과 글자를 구분합니다.
       svg +=

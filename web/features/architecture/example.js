@@ -8,7 +8,7 @@ signal hw "HW–SW 인터페이스" #16a34a dotted
 // column으로 열 지정 · 같은 열은 선언 순서대로 배치
 component input "SWC401 : Input Output Conversion" #d9e8fb column 1 {
   unit adc "SWU401.1\\nDrv_Adc" #d6ead0 {
-    in tail "Vcc_Tail"
+    in tail "Vcc_Tail" signal hw
     in stop "Vcc_Stop"
     in turn "Vcc_Turn"
     out voltage "VINVOL_TAIL"
@@ -70,7 +70,7 @@ component output "SWC408 : Output Conversion" #d9e8fb column 4 {
   unit uart "SWU408.1\\nDrv_Uart" #d6ead0 {
     in tail
     in stop
-    out tx "TxData"
+    out tx "TxData" signal hw
   }
   unit outputPort "SWU408.2\\nDrv_Port" #d6ead0 {
     in received
